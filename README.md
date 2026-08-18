@@ -283,12 +283,51 @@ uv run python -m thought_leak_range live `
 [V4各10回実験](docs/experiment-v4-10x.md)、promptの面白い転び方は
 [六択を一行で教えたら三問落とした](docs/v4-probe-language-failure.md)へ残しています。
 
+### V4-S: 停止世界へ同じV4を移植
+
+`--world-clock vago-sync`を付けると、観測後にViZDoomを止め、最初の有効な一文字が
+届いた時だけ固定pulseぶん進めます。worldが止まっている間は新しい観測も生まれないため、
+指定した3 laneは実効1 laneになります。完成文ではなく最初のstreamed digitで動くこと、
+6択prompt、400 ms TTL、誤答を補正しない規則は通常V4と同じです。
+
+現行code・同じmodel・seed 12を数分差で走らせたclock ablationは次の結果でした。
+
+| 指標 | 通常V4: 35 Hz継続 | V4-S: VAGO式停止 |
+|---|---:|---:|
+| KILLCOUNT / HITCOUNT | 2 / 2 | **6 / 6** |
+| 生存したgame時間 | 11.600秒 | **13.886秒** |
+| wall time | 11.609秒 | 47.015秒 |
+| Cloud待機中のgame tick | 進む | **158 / 158回すべて0** |
+| WAIT tick | 106 | **3** |
+| pulse preemption | 38 | **0** |
+
+![V4-S停止世界で6体倒したreplay](docs/assets/v4-vago-sync-seed12-6-kills.gif)
+
+停止版は64回FIREを選んだのに、弾薬は7発しか減りませんでした。Cloudを待つ200 msは
+銃のcooldownを1 tickも進めないため、思考時間だけ無料で身体時間は無料にならないからです。
+これは同じV4のworld clockだけを替えた一seed実験であり、VAGOのASCII＋depth入力や
+1.3M専用modelとの直接対決ではありません。全条件とraw artifactは
+[V4-S実験記録](docs/experiment-v4-vago-sync.md)へ。
+
+```powershell
+uv run python -m thought_leak_range live `
+  --env-file C:\path\outside\repo\.env `
+  --model meta-llama/llama-3.1-8b-instruct `
+  --provider Groq --no-provider-fallback `
+  --tap-mode direct-motor --world-clock vago-sync --lanes 3 `
+  --scenario defend_the_center --duration 15 --seed 12 `
+  --motor-token-max-age-ms 400 `
+  --max-tokens 16 --max-requests 200 --max-usd 0.025
+```
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
 [SauerkrautLM-Doom-MultiVec](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)
 は、ASCII＋depthからcloud LLMへ4 actionを選ばせています。ただし公開benchmarkは
 API completionを同期的に待ってから`make_action()`するため、推論中にworldが進みません。
+これはcode読解だけでなく、0 ms / 650 msで全18画面・depth・killが完全一致する
+[公式runner実測](docs/vago-sync-probe.md)でも確認しました。
 
 Thought Leak Rangeは世界初を主張しません。現在の差は、**worldを止めず、非同期cloud判断の
 古さを管理し、間に合った一文字だけを一発へする**ことです。比較の詳細は
@@ -299,7 +338,7 @@ Thought Leak Rangeは世界初を主張しません。現在の差は、**world�
 - V4の196-token教科書を、6 / 6 probeを壊さず短縮・cache・fine-tuneする
 - 古い座標へ固定pulseを出す代わりに、LLM自身へ速度・予測時刻つきtokenを選ばせる
 - labels版とraw pixels / ASCII / depth版を同じunpaused条件で比較する
-- synchronousにworldを止めるbaselineと、35 Hz asynchronous版を同じmodelで比較する
+- `unpaused` / `vago-sync`を10 paired seedへ広げ、clock効果とrun分散を分離する
 - V3の黒板は別branchの四人会議として、精度を壊さない協調表現へ育てる
 - score上のkillと、弾で確認できたhit-confirmed killを常に分ける
 

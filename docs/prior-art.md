@@ -36,8 +36,10 @@ get_state()
 
 Because the game is stepped by `make_action`, the world does not keep advancing during a slow cloud
 request. Calling the option `--realtime` paces a fast model so it does not outrun 35 Hz, but the code does
-not implement an asynchronous unpaused world for a 646 ms--13.3 s request. This is an inference from the
-published code, not a claim made by its authors.
+not implement an asynchronous unpaused world for a 646 ms--13.3 s request. We confirmed this against
+upstream commit `b4c3fdf` rather than relying on code reading alone: 0 ms and 650 ms versions of the same
+policy produced bit-identical RGB and depth trajectories, steps, kills, and HP. See the
+[timing probe](vago-sync-probe.md).
 
 Thought Leak Range chooses the opposite tradeoff: perception and control are initially easier, but the
 world remains live and stale cloud decisions are rejected.
@@ -52,6 +54,40 @@ world remains live and stale cloud decisions are rejected.
 | Representative result | Gemini 0.8 frag/episode at 920 ms | Five kills in one run; FIRE at mean 274 ms |
 
 The results are not directly comparable because the observation and action spaces differ.
+
+### What V3/V4 rebut — and what they do not
+
+V3 and V4 remove the local aiming used by `direct-bit`. Cloud decisions choose waiting, turning, and
+firing while the world continues at 35 Hz. V3 uses four action specialists; V4 uses one six-token
+policy over three staggered request lanes. In ten paired 15-second runs, V3 averaged 1.5 kills and V4
+averaged 3.5 official kills, with mean V4 decision latency of 252.2 ms.
+
+This is a clear architectural counterexample to the broad claim that cloud/general LLM latency makes
+live Doom control impossible. It is **not** evidence that V4 beats VAGO's 1.3M specialized winner,
+which reports 178 frags across ten episodes at 31 ms.
+
+There is also a method mismatch in the published baseline. The paper attributes LLM failure partly to
+enemies moving during inference, but the public code uses synchronous `PLAYER` mode and calls
+`make_action()` only after the blocking API response returns. Under ViZDoom's documented synchronous
+semantics, game ticks do not advance during that wait. The baseline therefore measures a paced
+synchronous agent, not an unpaused cloud controller.
+
+Important remaining confounds:
+
+- VAGO uses 40x25 ASCII plus depth; V4 currently receives privileged structured label-derived state.
+- VAGO exposes four actions including forward movement; V4 is currently a turret-like turn/fire task.
+- Episode duration, seeds, and kill attribution are not aligned, so frag totals are not directly comparable.
+
+We have now made the first clock-only ablation by running the same current V4 policy under both
+adapters. On fresh seed 12, unpaused V4 scored two kills while the stopped version scored six; all
+158 stopped request waits consumed zero game tics, WAIT fell from 106 to three tics, and pulse
+preemption fell from 38 to zero. This is one seed and still uses V4's structured labels and turret action
+space, so it isolates the clock scaffold rather than comparing against VAGO's model. See the
+[V4-S experiment](experiment-v4-vago-sync.md).
+
+The remaining fully aligned comparison is the same cloud model, ASCII+depth input, action set, seeds,
+and episode limits under two adapters: VAGO's blocking synchronous loop and V4's overlapping,
+TTL-guarded, one-token loop.
 
 ## Other close systems
 
