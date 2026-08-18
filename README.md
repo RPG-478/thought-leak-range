@@ -218,6 +218,10 @@ uv run python -m thought_leak_range live `
 全員黙ったため、baselineでは黒板を注入・記録しつつ判断には使わせない。この失敗も
 [黒板干渉記録](docs/v3-blackboard-interference.md)へ残した。
 
+V2 / V3をpaired seedで各10回実行すると、平均killは`5.4 vs 1.5`でV2が10 / 10勝利した。
+V3は全操作Cloud化を達成した一方、WAIT tickが60.2%、古い世代の棄却が464票に達した。
+詳細は[各10回比較](docs/experiment-v2-v3-10x.md)へ。
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
