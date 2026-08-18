@@ -83,6 +83,14 @@ seed 9〜16もcode、prompt、provider、制御値を変えず続けた。10 run
 `score kill`はViZDoom `KILLCOUNT`、`hit`は`HITCOUNT`。seed 14の差1が、
 monster infightingと思われるscoreだけのkillである。
 
+## Replay
+
+seed 12はKILLCOUNTとHITCOUNTがともに5で、今回のV4最高成績と直接hitが一致した。
+字幕の`MOTORLEFT / MOTORRIGHT / MOTORFIRE`は、local追尾ではなくCloud LLMが返した
+一文字tokenから実行されたactionである。
+
+![V4一文字運動野のseed 12、5 hit・5 kill全編replay](assets/v4-direct-motor-seed12-5-kills.gif)
+
 ## 集計
 
 | 指標 | V2 | V3 | V4 |

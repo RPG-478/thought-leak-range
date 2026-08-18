@@ -36,6 +36,11 @@ V4の観測からtoken到着までは中央値250 ms、FIRE tick実行までは�
 V3には10 / 10 seedで勝ち、V2には0勝9敗1分でした。V2は35 Hzのlocal追尾を持つため、
 V4の主な達成は勝敗よりも「誤判断を含む全操作をCloud LLM自身へ戻した」ことです。
 
+以下はV4 seed 12の全編replayです。字幕の`MOTORLEFT / MOTORRIGHT / MOTORFIRE`が
+Cloud LLMの一文字から実行された操作で、このrunは5 hit / 5 KILLCOUNTでした。
+
+![V4一文字運動野がViZDoomを全操作して5体倒すreplay](docs/assets/v4-direct-motor-seed12-5-kills.gif)
+
 V2の5発5 hit replayも比較用に残しています。
 
 ![local追尾を持つV2がViZDoomで5体倒すreplay](docs/assets/episode-5-kills.gif)
