@@ -131,6 +131,7 @@ def _add_range_arguments(
             "direct-shot",
             "direct-bit",
             "four-agent",
+            "direct-motor",
         ),
         default="marker",
         help=(
@@ -139,7 +140,8 @@ def _add_range_arguments(
             "the LLM only authorizes shooting; direct-shot maps one fresh raw "
             "decision to exactly one FIRE tick; direct-bit does the same from "
             "the first visible 1/0 without a textual nonce; four-agent races "
-            "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard"
+            "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard; "
+            "direct-motor lets one LLM choose a six-way action and pulse length"
         ),
     )
     parser.add_argument(
@@ -170,6 +172,12 @@ def _add_range_arguments(
         default=300,
         help="maximum source-observation age for a four-agent FIRE claim",
     )
+    parser.add_argument(
+        "--motor-token-max-age-ms",
+        type=_bounded_int(50, 1000),
+        default=400,
+        help="maximum source-observation age for a V4 direct motor token",
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -181,8 +189,16 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
         else:
-            if not args.probe_only and args.max_requests < 2:
-                parser.error("live needs at least two requests: probe + one observation")
+            if not args.probe_only:
+                minimum_requests = {
+                    "four-agent": 5,
+                    "direct-motor": 7,
+                }.get(args.tap_mode, 2)
+                if args.max_requests < minimum_requests:
+                    parser.error(
+                        f"{args.tap_mode} live needs at least "
+                        f"{minimum_requests} requests for probe + game"
+                    )
             result = asyncio.run(_run_live(args))
     except (ValueError, RuntimeError, BudgetExceeded) as error:
         parser.exit(2, f"thought-leak-range: {error}\n")
@@ -214,6 +230,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
+            motor_token_max_age_ms=args.motor_token_max_age_ms,
         )
         result = {
             "mode": "mock",
@@ -321,6 +338,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
+            motor_token_max_age_ms=args.motor_token_max_age_ms,
         )
         result = {
             "mode": "live",
@@ -339,6 +357,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "direct_aim_assist": args.direct_aim_assist,
             "council_movement_ttl_ms": args.council_movement_ttl_ms,
             "council_fire_max_age_ms": args.council_fire_max_age_ms,
+            "motor_token_max_age_ms": args.motor_token_max_age_ms,
             "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
             "artifacts": str(artifacts.directory),
             "warmup_ms": warmup_ms,
