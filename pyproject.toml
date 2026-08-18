@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "thought-leak-range"
+version = "0.1.0"
+description = "Let streamed LLM reasoning leak into a safe offline ViZDoom body."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "httpx[http2]>=0.28,<1",
+  "pillow>=11,<13",
+  "vizdoom>=1.2.4,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+]
+
+[project.scripts]
+thought-leak-range = "thought_leak_range.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/thought_leak_range"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
