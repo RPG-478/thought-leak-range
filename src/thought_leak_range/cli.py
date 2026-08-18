@@ -178,6 +178,15 @@ def _add_range_arguments(
         default=400,
         help="maximum source-observation age for a V4 direct motor token",
     )
+    parser.add_argument(
+        "--world-clock",
+        choices=("unpaused", "vago-sync"),
+        default="unpaused",
+        help=(
+            "unpaused keeps stepping at 35 Hz during cloud inference; vago-sync "
+            "freezes direct-motor V4 until its next streamed motor token"
+        ),
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -185,6 +194,8 @@ def main(argv: list[str] | None = None) -> None:
     _configure_utf8_console()
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.world_clock == "vago-sync" and args.tap_mode != "direct-motor":
+        parser.error("--world-clock vago-sync currently requires --tap-mode direct-motor")
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
@@ -226,6 +237,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             show_thoughts=args.show_thoughts,
             tap_mode=args.tap_mode,
             scenario=args.scenario,
+            world_clock=args.world_clock,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
@@ -234,6 +246,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
         )
         result = {
             "mode": "mock",
+            "world_clock": args.world_clock,
             "artifacts": str(artifacts.directory),
             "range": summary,
         }
@@ -286,6 +299,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             failure = {
                 "mode": "live",
                 "status": "probe_failed_closed",
+                "world_clock": args.world_clock,
                 "artifacts": str(artifacts.directory),
                 "warmup_ms": warmup_ms,
                 "probe": _probe_dict(probe),
@@ -311,6 +325,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
                 "provider_allow_fallbacks": args.provider_allow_fallbacks,
                 "preferred_max_latency_seconds": args.preferred_max_latency,
                 "tap_mode": args.tap_mode,
+                "world_clock": args.world_clock,
                 "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
                 "artifacts": str(artifacts.directory),
                 "warmup_ms": warmup_ms,
@@ -334,6 +349,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             show_thoughts=args.show_thoughts,
             tap_mode=args.tap_mode,
             scenario=args.scenario,
+            world_clock=args.world_clock,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
@@ -353,6 +369,8 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "preferred_max_latency_seconds": args.preferred_max_latency,
             "tap_mode": args.tap_mode,
             "scenario": args.scenario,
+            "seed": args.seed,
+            "world_clock": args.world_clock,
             "direct_max_age_ms": args.direct_max_age_ms,
             "direct_aim_assist": args.direct_aim_assist,
             "council_movement_ttl_ms": args.council_movement_ttl_ms,
