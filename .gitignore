@@ -1,0 +1,12 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+runs/
+_vizdoom.ini
+.coverage
+dist/
+build/
+*.egg-info/
