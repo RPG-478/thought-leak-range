@@ -23,6 +23,12 @@ from .council import (
     MotorCouncilArbiter,
     SpecialistBitParser,
 )
+from .motor_token import (
+    MotorTick,
+    MotorToken,
+    MotorTokenArbiter,
+    MotorTokenParser,
+)
 from .openrouter import BudgetExceeded, OpenRouterReasoningClient, StreamResult
 from .protocol import (
     Action,
@@ -60,6 +66,15 @@ class RunMetrics:
     council_conflicts: int = 0
     council_selected: Counter[str] = field(default_factory=Counter)
     council_shots_executed: int = 0
+    motor_token_decisions: int = 0
+    motor_token_correct: int = 0
+    motor_token_incorrect: int = 0
+    motor_token_selected: Counter[str] = field(default_factory=Counter)
+    motor_token_ticks: Counter[str] = field(default_factory=Counter)
+    motor_token_preemptions: int = 0
+    motor_token_fire_ticks: int = 0
+    motor_token_hits: int = 0
+    motor_token_damage: int = 0
     budget_guard_stopped: bool = False
 
 
@@ -170,6 +185,25 @@ class MockReasoningPilot:
     ) -> StreamResult:
         started = time.monotonic()
         action = _rule_action(observation)
+        if self.tap_mode == "direct-motor":
+            token = _motor_token_rule(observation)
+            await asyncio.sleep(0.025)
+            arrived = time.monotonic()
+            on_visible(token.value, arrived)
+            finished = time.monotonic()
+            return StreamResult(
+                response_id=f"mock-{observation.seq}-{token.name.lower()}",
+                reported_model="mock/direct-motor-token",
+                provider="local",
+                reasoning_types=(),
+                raw_reasoning_chars=0,
+                visible_chars=1,
+                first_byte_ms=(arrived - started) * 1000.0,
+                first_reasoning_ms=None,
+                first_visible_ms=(arrived - started) * 1000.0,
+                total_ms=(finished - started) * 1000.0,
+                usage={},
+            )
         if self.tap_mode == "four-agent":
             if specialist is None:
                 raise ValueError("four-agent requests require a specialist")
@@ -314,11 +348,12 @@ class OpenRouterPilot:
             stop=None,
             temperature=(
                 0.0
-                if self.tap_mode in {"direct-shot", "direct-bit", "four-agent"}
+                if self.tap_mode
+                in {"direct-shot", "direct-bit", "four-agent", "direct-motor"}
                 else None
             ),
             reasoning_enabled=(
-                self.tap_mode not in {"direct-bit", "four-agent"}
+                self.tap_mode not in {"direct-bit", "four-agent", "direct-motor"}
                 or self.direct_bit_reasoning
             ),
         )
@@ -333,6 +368,13 @@ async def probe_raw_reasoning(
     tap_mode: str,
     probe_case: str = "fire",
 ) -> ProbeOutcome:
+    if tap_mode == "direct-motor":
+        return await _probe_direct_motor_suite(
+            pilot=pilot,
+            run_id=run_id,
+            artifacts=artifacts,
+            show_thoughts=show_thoughts,
+        )
     cases = {
         "fire": (True, 0.0, 10),
         "left": (True, -0.25, 10),
@@ -533,6 +575,132 @@ async def _probe_four_agent(
     )
 
 
+async def _probe_direct_motor_suite(
+    *,
+    pilot,
+    run_id: str,
+    artifacts: RunArtifacts,
+    show_thoughts: bool,
+) -> ProbeOutcome:
+    captured_at = time.monotonic()
+    cases = (
+        (MotorToken.WAIT, True, 0.0, 0),
+        (MotorToken.LEFT_SHORT, True, -0.15, 10),
+        (MotorToken.LEFT_LONG, True, -0.35, 10),
+        (MotorToken.RIGHT_SHORT, True, 0.15, 10),
+        (MotorToken.RIGHT_LONG, False, None, 10),
+        (MotorToken.FIRE, True, 0.0, 10),
+    )
+    frames: dict[MotorToken, object] = {}
+    streams: dict[MotorToken, StreamResult] = {}
+
+    async def run_one(
+        seq: int,
+        expected: MotorToken,
+        visible: bool,
+        dx: float | None,
+        ammo: int,
+    ) -> None:
+        observation = Observation(
+            seq=seq,
+            captured_at=captured_at,
+            target_visible=visible,
+            target_id=seq if visible else None,
+            target_name="ProbeDummy" if visible else None,
+            target_dx=dx,
+            target_width=0.2 if visible else None,
+            health=100,
+            ammo=ammo,
+            kills=0,
+            hits=0,
+            damage=0,
+        )
+        parser = MotorTokenParser(expected_run_id=run_id, expected_obs=seq)
+
+        def on_reasoning(text: str, arrived_at: float) -> None:
+            artifacts.thought(
+                obs=seq,
+                text=text,
+                source=f"probe.{expected.name}.reasoning.text",
+            )
+
+        def on_visible(text: str, arrived_at: float) -> None:
+            artifacts.thought(
+                obs=seq,
+                text=text,
+                source=f"probe.{expected.name}.visible",
+            )
+            parsed = parser.feed(text, now=arrived_at)
+            if parsed:
+                frames[expected] = parsed[0]
+            if show_thoughts:
+                print(f"[probe {expected.name}] {text}", flush=True)
+
+        streams[expected] = await pilot.think(
+            observation=observation,
+            run_id=run_id,
+            on_reasoning=on_reasoning,
+            on_visible=on_visible,
+        )
+
+    artifacts.event(
+        "probe_started",
+        model=getattr(pilot, "client", None) and pilot.client.model,
+        tap_mode="direct-motor",
+        tokens=[token.name for token in MotorToken],
+    )
+    await asyncio.gather(
+        *(
+            run_one(seq, expected, visible, dx, ammo)
+            for seq, (expected, visible, dx, ammo) in enumerate(cases)
+        )
+    )
+    suite_results: dict[str, object] = {}
+    latencies: list[float] = []
+    semantically_correct = len(frames) == len(cases)
+    for expected, _visible, _dx, _ammo in cases:
+        frame = frames.get(expected)
+        actual = getattr(frame, "token", None)
+        correct = actual is expected
+        semantically_correct = semantically_correct and correct
+        latency = (
+            (frame.received_at - captured_at) * 1000.0
+            if frame is not None
+            else None
+        )
+        if latency is not None:
+            latencies.append(latency)
+        suite_results[expected.name] = {
+            "expected_token": expected.value,
+            "actual_token": actual.value if actual is not None else None,
+            "correct": correct,
+            "latency_ms": latency,
+            **_stream_log(streams[expected]),
+        }
+    passed = semantically_correct and all(
+        stream.visible_chars > 0 for stream in streams.values()
+    )
+    latency = max(latencies) if latencies else None
+    artifacts.event(
+        "probe_finished",
+        passed=passed,
+        marker_action="ALL_6" if passed else None,
+        expected_action="ALL_6",
+        semantically_correct=semantically_correct,
+        marker_latency_ms=latency,
+        specialist_results=suite_results,
+    )
+    return ProbeOutcome(
+        passed=passed,
+        marker_action="ALL_6" if passed else None,
+        expected_action="ALL_6",
+        semantically_correct=semantically_correct,
+        marker_latency_ms=latency,
+        stream=streams[MotorToken.FIRE],
+        specialist_results=suite_results,
+    )
+
+
 async def run_practice_range(
     *,
     pilot,
@@ -551,6 +719,7 @@ async def run_practice_range(
     direct_aim_assist: bool = False,
     council_movement_ttl_ms: int = 600,
     council_fire_max_age_ms: int = 300,
+    motor_token_max_age_ms: int = 400,
 ) -> dict[str, object]:
     if duration_seconds <= 0 or observation_interval <= 0:
         raise ValueError("duration and observation interval must be positive")
@@ -562,9 +731,15 @@ async def run_practice_range(
     metrics = RunMetrics()
     direct_mode = tap_mode in {"direct-shot", "direct-bit"}
     council_mode = tap_mode == "four-agent"
+    motor_token_mode = tap_mode == "direct-motor"
     if council_mode and lanes < len(SPECIALISTS):
         raise ValueError("four-agent mode needs at least four concurrent lanes")
-    if council_mode:
+    if motor_token_mode:
+        arbiter = MotorTokenArbiter(
+            run_id=run_id,
+            maximum_age_ms=motor_token_max_age_ms,
+        )
+    elif council_mode:
         arbiter = MotorCouncilArbiter(
             run_id=run_id,
             movement_ttl_ms=council_movement_ttl_ms,
@@ -587,6 +762,7 @@ async def run_practice_range(
     last_observation: Observation | None = None
     initialization_started = time.monotonic()
     launch_stopped = False
+    game_loop_duration_ms = 0.0
 
     artifacts.event(
         "range_started",
@@ -604,6 +780,9 @@ async def run_practice_range(
         ),
         council_fire_max_age_ms=(
             council_fire_max_age_ms if council_mode else None
+        ),
+        motor_token_max_age_ms=(
+            motor_token_max_age_ms if motor_token_mode else None
         ),
     )
 
@@ -633,7 +812,13 @@ async def run_practice_range(
                 live_state = (
                     arena.observe(seq=latest_obs)
                     if tap_mode
-                    in {"fire-gate", "direct-shot", "direct-bit", "four-agent"}
+                    in {
+                        "fire-gate",
+                        "direct-shot",
+                        "direct-bit",
+                        "four-agent",
+                        "direct-motor",
+                    }
                     else None
                 )
                 target_edge = False
@@ -662,6 +847,7 @@ async def run_practice_range(
                 # first and retroactively cancelled a decision that had already
                 # arrived in time for this physical tick.
                 executed_direct_frame = None
+                executed_motor_tick: MotorTick | None = None
                 if direct_mode:
                     assert isinstance(arbiter, DirectShotArbiter)
                     executed_direct_frame = arbiter.take_fire(now=now)
@@ -714,7 +900,22 @@ async def run_practice_range(
                                 previous=blackboard,
                             )
                         artifacts.event("observation", **asdict(observation))
-                        if council_mode:
+                        if motor_token_mode:
+                            assert isinstance(arbiter, MotorTokenArbiter)
+                            task = asyncio.create_task(
+                                _run_motor_token_request(
+                                    pilot=pilot,
+                                    observation=observation,
+                                    run_id=run_id,
+                                    arbiter=arbiter,
+                                    artifacts=artifacts,
+                                    metrics=metrics,
+                                    show_thoughts=show_thoughts,
+                                )
+                            )
+                            tasks[task] = latest_obs
+                            launched += 1
+                        elif council_mode:
                             for specialist in LAUNCH_ORDER:
                                 task = asyncio.create_task(
                                     _run_council_request(
@@ -753,7 +954,15 @@ async def run_practice_range(
                     # take hundreds of ms on their first call.
                     next_observation_at = time.monotonic() + observation_interval
 
-                if council_mode:
+                if motor_token_mode:
+                    assert isinstance(arbiter, MotorTokenArbiter)
+                    executed_motor_tick = arbiter.take_tick(now=now)
+                    action = (
+                        executed_motor_tick.action
+                        if executed_motor_tick is not None
+                        else Action.WAIT
+                    )
+                elif council_mode:
                     assert isinstance(arbiter, MotorCouncilArbiter)
                     action = arbiter.take_action(now=now)
                 elif direct_mode:
@@ -802,6 +1011,48 @@ async def run_practice_range(
                 )
                 step_started_at = time.monotonic()
                 reward = arena.step(action)
+                if executed_motor_tick is not None:
+                    token = executed_motor_tick.frame.token
+                    metrics.motor_token_ticks[token.name] += 1
+                    if action is Action.FIRE:
+                        assert live_state is not None
+                        before = live_state
+                        after = arena.observe(seq=latest_obs)
+                        last_observation = after
+                        source = observations[executed_motor_tick.frame.obs]
+                        hit_delta = max(0, after.hits - before.hits)
+                        damage_delta = max(0, after.damage - before.damage)
+                        metrics.motor_token_fire_ticks += 1
+                        artifacts.event(
+                            "motor_token_fire_executed",
+                            source_obs=executed_motor_tick.frame.obs,
+                            source_token=token.name,
+                            source_target_id=source.target_id,
+                            source_target_dx=source.target_dx,
+                            source_age_ms=(
+                                step_started_at - source.captured_at
+                            )
+                            * 1000.0,
+                            token_to_fire_ms=(
+                                step_started_at
+                                - executed_motor_tick.frame.received_at
+                            )
+                            * 1000.0,
+                            current_target_visible=before.target_visible,
+                            current_target_id=before.target_id,
+                            current_target_dx=before.target_dx,
+                            ammo_before=before.ammo,
+                            ammo_after=after.ammo,
+                            hits_before=before.hits,
+                            hits_after=after.hits,
+                            hit_delta=hit_delta,
+                            damage_before=before.damage,
+                            damage_after=after.damage,
+                            damage_delta=damage_delta,
+                            kills_before=before.kills,
+                            kills_after=after.kills,
+                            reward=reward,
+                        )
                 if council_mode and action is Action.FIRE:
                     metrics.council_shots_executed += 1
                 if executed_direct_frame is not None:
@@ -849,6 +1100,9 @@ async def run_practice_range(
                 next_tick_at += 1.0 / 35.0
                 await asyncio.sleep(max(0.0, next_tick_at - time.monotonic()))
         finally:
+            # Capture active wall time before cancelling streams and encoding the
+            # replay. The old metric accidentally included GIF finalization.
+            game_loop_duration_ms = (time.monotonic() - started) * 1000.0
             arbiter.panic_release()
             for task in tasks:
                 task.cancel()
@@ -867,6 +1121,13 @@ async def run_practice_range(
         metrics.direct_damage = max(
             0, final_observation.damage - initial_combat.damage
         )
+    if motor_token_mode and final_observation is not None:
+        metrics.motor_token_hits = max(
+            0, final_observation.hits - initial_combat.hits
+        )
+        metrics.motor_token_damage = max(
+            0, final_observation.damage - initial_combat.damage
+        )
 
     gif_written = recorder.save(artifacts.gif_path)
     marker_latency = metrics.marker_latency_ms
@@ -874,7 +1135,8 @@ async def run_practice_range(
         "run_id": run_id,
         "tap_mode": tap_mode,
         "scenario": scenario,
-        "duration_ms": round((time.monotonic() - started) * 1000.0, 3),
+        "duration_ms": round(game_loop_duration_ms, 3),
+        "simulation_duration_ms": round(ticks / 35.0 * 1000.0, 3),
         "ticks": ticks,
         "episode_finished": episode_finished,
         "requests_launched": launched,
@@ -903,6 +1165,15 @@ async def run_practice_range(
         "council_conflicts": metrics.council_conflicts,
         "council_selected": dict(metrics.council_selected),
         "council_shots_executed": metrics.council_shots_executed,
+        "motor_token_decisions": metrics.motor_token_decisions,
+        "motor_token_correct": metrics.motor_token_correct,
+        "motor_token_incorrect": metrics.motor_token_incorrect,
+        "motor_token_selected": dict(metrics.motor_token_selected),
+        "motor_token_ticks": dict(metrics.motor_token_ticks),
+        "motor_token_preemptions": metrics.motor_token_preemptions,
+        "motor_token_fire_ticks": metrics.motor_token_fire_ticks,
+        "motor_token_hits": metrics.motor_token_hits,
+        "motor_token_damage": metrics.motor_token_damage,
         "budget_guard_stopped": metrics.budget_guard_stopped,
         "total_reward": total_reward,
         "final_observation": asdict(final_observation) if final_observation else None,
@@ -1123,6 +1394,111 @@ async def _run_council_request(
     return result
 
 
+async def _run_motor_token_request(
+    *,
+    pilot,
+    observation: Observation,
+    run_id: str,
+    arbiter: MotorTokenArbiter,
+    artifacts: RunArtifacts,
+    metrics: RunMetrics,
+    show_thoughts: bool,
+) -> StreamResult:
+    parser = MotorTokenParser(
+        expected_run_id=run_id,
+        expected_obs=observation.seq,
+    )
+    expected = _motor_token_rule(observation)
+
+    def on_reasoning(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source="motor_token.reasoning.text",
+        )
+
+    def on_visible(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source="motor_token.visible",
+        )
+        if show_thoughts:
+            print(
+                f"[obs {observation.seq:03d} motor] {text}",
+                end="",
+                flush=True,
+            )
+        for frame in parser.feed(text, now=arrived_at):
+            decision = arbiter.offer(
+                frame,
+                captured_at=observation.captured_at,
+                now=arrived_at,
+            )
+            latency = (arrived_at - observation.captured_at) * 1000.0
+            correct = frame.token is expected
+            metrics.motor_token_decisions += 1
+            if correct:
+                metrics.motor_token_correct += 1
+            else:
+                metrics.motor_token_incorrect += 1
+            if decision.accepted:
+                metrics.accepted_markers += 1
+                metrics.marker_latency_ms.append(latency)
+                metrics.motor_token_selected[frame.token.name] += 1
+                if decision.preempted is not None:
+                    metrics.motor_token_preemptions += 1
+                print(
+                    f"\n[MOTOR6] obs={frame.obs} token={frame.token.value}:"
+                    f"{frame.token.name} ticks={frame.token.pulse_ticks} "
+                    f"latency={latency:.1f}ms",
+                    flush=True,
+                )
+            else:
+                metrics.rejected_markers[decision.reason] += 1
+            artifacts.event(
+                "motor_token",
+                obs=frame.obs,
+                token=frame.token.value,
+                token_name=frame.token.name,
+                action=frame.token.action.value,
+                pulse_ticks=frame.token.pulse_ticks,
+                latency_ms=latency,
+                accepted=decision.accepted,
+                reason=decision.reason,
+                expected_token=expected.value,
+                expected_token_name=expected.name,
+                semantically_correct=correct,
+                preempted_obs=(
+                    decision.preempted.obs
+                    if decision.preempted is not None
+                    else None
+                ),
+                preempted_token=(
+                    decision.preempted.token.name
+                    if decision.preempted is not None
+                    else None
+                ),
+            )
+
+    artifacts.event("request_started", obs=observation.seq, protocol="motor6")
+    result = await pilot.think(
+        observation=observation,
+        run_id=run_id,
+        on_reasoning=on_reasoning,
+        on_visible=on_visible,
+    )
+    if show_thoughts:
+        print()
+    artifacts.event(
+        "request_finished",
+        obs=observation.seq,
+        protocol="motor6",
+        **_stream_log(result),
+    )
+    return result
+
+
 def _harvest_finished(
     *,
     tasks: dict[asyncio.Task[StreamResult], int],
@@ -1185,6 +1561,25 @@ def _motor_messages(
     specialist: Action | None = None,
     blackboard: str = "",
 ) -> list[dict[str, str]]:
+    if tap_mode == "direct-motor":
+        system = (
+            "Reply with exactly one ASCII digit and nothing else. Examples: "
+            "v=0 x=9999 a=10 =>4; v=1 x=0 a=0 =>0; "
+            "v=1 x=-150 a=10 =>1; v=1 x=-350 a=10 =>2; "
+            "v=1 x=150 a=10 =>3; v=1 x=350 a=10 =>4; "
+            "v=1 x=0 a=10 =>5. General rule: no target=>4; no ammo=>0; "
+            "x<-220=>2; -220<=x<-80=>1; -80<=x<=80=>5; "
+            "80<x<=220=>3; x>220=>4. /no_think"
+        )
+        user = (
+            f"v={int(observation.target_visible)} "
+            f"x={_direct_bit_x(observation)} a={observation.ammo}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
     if tap_mode == "four-agent":
         if specialist is None:
             raise ValueError("four-agent messages require a specialist")
@@ -1337,6 +1732,23 @@ def _council_rule_action(observation: Observation) -> Action:
     if _direct_bit_x(observation) > 80:
         return Action.RIGHT
     return Action.FIRE
+
+
+def _motor_token_rule(observation: Observation) -> MotorToken:
+    if not observation.target_visible or observation.target_dx is None:
+        return MotorToken.RIGHT_LONG
+    if observation.ammo <= 0:
+        return MotorToken.WAIT
+    x = _direct_bit_x(observation)
+    if x < -220:
+        return MotorToken.LEFT_LONG
+    if x < -80:
+        return MotorToken.LEFT_SHORT
+    if x <= 80:
+        return MotorToken.FIRE
+    if x <= 220:
+        return MotorToken.RIGHT_SHORT
+    return MotorToken.RIGHT_LONG
 
 
 def _direct_bit_x(observation: Observation) -> int:

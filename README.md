@@ -1,33 +1,44 @@
 # Thought Leak Range
 
-> **VizDoomをCloud LLMにやらせた。ゲームを止めず、平均274 msで一発ずつ撃たせる。**
+> **VizDoomをCloud LLMにやらせた。ゲームを止めず、一文字で探索・旋回・発砲まで全部選ばせる。**
 
 Cloud LLMの判断を、35 Hzで動き続けるoffline ViZDoomへ非同期で接続する実験です。
-現在の成功版`direct-bit`では、ViZDoom labelsから作った敵位置をLlama 3.1 8Bへ送り、
-visible出力の最初の一文字が厳密な`1`の時だけ、一回のFIRE tickへ直結します。
+V4 `direct-motor`ではLlama 3.1 8Bが毎回`0`〜`5`のmotor tokenを一つ返し、
+その一文字が固定長のWAIT / LEFT / RIGHT / FIREへ直結します。local側は敵を見て
+操作を選び直さず、応答の年齢・順序・文法だけを検査します。
 
 ```text
-ViZDoom labels ── OBS#25 ──> Llama 3.1 8B / Groq ──> "1"
-       │                                              │
-       └─ local body: LEFT / RIGHT only               │
-                                                      ▼
-                       latest observation + 300 ms freshness guard
-                                                      │
-                                                      └─ one FIRE tick
+ViZDoom labels (v/x/ammo) ── 0.1秒ごと ──> Llama 3.1 8B / Groq
+          worldは35 Hzで止まらない             3 requestを時間差で重ねる
+                                                     │
+                                                     ▼
+                    "0" WAIT / "1,2" LEFT / "3,4" RIGHT / "5" FIRE
+                                                     │
+                                                     ▼
+                      400 ms鮮度・単調な観測番号・固定1/2/5 tickだけ検査
+                                                     │
+                                                     └─ ViZDoomへ直接入力
 ```
 
-15秒challengeでは、cloud判断が平均256 ms、観測から実FIRE tickまで平均274 ms。
-5発の実弾が5発とも命中し、5体倒したあと画面外のDemonに噛まれて死にました。
+paired seed 7〜16を15秒ずつ走らせ、V4は公式KILLCOUNT 35、HITCOUNT 34でした。
+1 killは弾薬もHITCOUNTも増えずKILLCOUNTだけ増えたため、Doomのmonster infightingと
+思われる別枠です。
 
-![Cloud LLMがViZDoomで5体倒すreplay](docs/assets/episode-5-kills.gif)
+| 指標 | V2: local追尾＋LLM発砲 | V3: 4 Cloud Agent | V4: 一文字運動野 |
+|---|---:|---:|---:|
+| 10 run平均kill | 5.4 | 1.5 | **3.5** |
+| run平均判断latency | 253.0 ms | 282.1 ms | **252.2 ms** |
+| WAIT tick比率 | 35.2% | 60.2% | **27.3%** |
+| 実弾あたりhit | 87.1% | 53.6% | 45.3% |
+| local操作判断 | 左右追尾あり | なし | **なし** |
 
-| 指標 | 15秒challenge |
-|---|---:|
-| 受理した判断 | 16 / 16正解 |
-| cloud判断latency | 最速204 ms / 中央値265 ms / 平均256 ms |
-| 観測 → 実FIRE tick | 平均274 ms |
-| ammo / hit / kill | `52 → 47` / 5 / 5 |
-| OpenRouter報告実費 | `$0.00012228` |
+V4の観測からtoken到着までは中央値250 ms、FIRE tick実行までは中央値281 msです。
+V3には10 / 10 seedで勝ち、V2には0勝9敗1分でした。V2は35 Hzのlocal追尾を持つため、
+V4の主な達成は勝敗よりも「誤判断を含む全操作をCloud LLM自身へ戻した」ことです。
+
+V2の5発5 hit replayも比較用に残しています。
+
+![local追尾を持つV2がViZDoomで5体倒すreplay](docs/assets/episode-5-kills.gif)
 
 出発点だった「streamed raw reasoningを盗み見し、final answerもtool callも待たずに
 身体へ漏電させる」modeも残っています。`fire-gate`はLLMのraw thinkingを短命な
@@ -44,6 +55,7 @@ ViZDoom labels ── OBS#25 ──> Llama 3.1 8B / Groq ──> "1"
 - 推論中もworldは35 Hzで進み、古い判断はlatest-observation / 300 ms guardで捨てる
 - raw thought版と一文字classifier版の結果を混ぜない
 - `four-agent`ではlocal左右追尾も外し、4本のCloud streamだけが全操作を選ぶ
+- `direct-motor`では一つのLLM policyが方向とpulse長を一文字で選び、local側は固定変換だけ行う
 - commercial game、native input、anti-cheatへ接続しない
 
 ## セットアップ
@@ -100,6 +112,7 @@ OpenRouterのproviderは`data_collection=deny`を保ったまま、FPS実験な�
 | `direct-shot` | raw reasoningのrequest-bound bit | 一判断を一回のFIRE tickへ直結、nonceあり |
 | `direct-bit` | visible出力の最初の厳密な`1 / 0` | nonceなし。一文字のstreaming classifier baseline |
 | `four-agent` | 4専門streamの最初の厳密な`1 / 0` | V3。WAIT / LEFT / RIGHT / FIREが一つの身体を共有 |
+| `direct-motor` | visible出力の最初の厳密な`0`〜`5` | V4。一つのpolicyが全操作と1/2/5 tick pulseを直接選択 |
 
 DeepSeek V4 Flashは最初の実測で、action markerをraw reasoningではなくvisible回答へ
 書きました。そのため安全な`marker` modeは正しく停止しました。
@@ -222,6 +235,49 @@ V2 / V3をpaired seedで各10回実行すると、平均killは`5.4 vs 1.5`でV2
 V3は全操作Cloud化を達成した一方、WAIT tickが60.2%、古い世代の棄却が464票に達した。
 詳細は[各10回比較](docs/experiment-v2-v3-10x.md)へ。
 
+### V4: 一文字運動野
+
+V3の4人会議を解散し、一つのCloud LLM policyへ6種類のmotor tokenを直接選ばせます。
+3 laneは別人格ではなく、同じpolicyを時間差で重ねる非同期pipelineです。
+
+| token | 意味 | 固定pulse |
+|---:|---|---:|
+| `0` | WAIT | 1 tick |
+| `1` / `2` | LEFT_SHORT / LEFT_LONG | 2 / 5 tick |
+| `3` / `4` | RIGHT_SHORT / RIGHT_LONG | 2 / 5 tick |
+| `5` | FIRE | 1 tick |
+
+local側は`v/x/ammo`を作り、一文字をallow-listで読み、400 ms以内かつ観測番号が
+単調増加なら表どおり実行するだけです。FIRE直前の中央再確認、左右の補正、cooldown中の
+自動再試行はしません。LLMの誤答65件も採用され、そのまま身体へ入りました。
+
+```powershell
+uv run python -m thought_leak_range live `
+  --env-file C:\path\outside\repo\.env `
+  --model meta-llama/llama-3.1-8b-instruct `
+  --provider Groq --no-provider-fallback `
+  --tap-mode direct-motor --lanes 3 `
+  --scenario defend_the_center --duration 15 `
+  --observation-interval 0.10 `
+  --motor-token-max-age-ms 400 `
+  --max-tokens 16 --max-requests 180 `
+  --max-usd 0.025
+```
+
+ゲームへ入る前に6 tokenを一度ずつ問い合わせ、一つでも違えばfail closedします。
+最初の条件文だけのpromptは6問中3問を誤り停止しました。few-shot例へ直した後は、
+10 runすべての起動試験が6 / 6で通過しています。
+
+- 10 run合計: 35 KILLCOUNT、34 hit、75実弾、平均3.5 kill
+- 判断: 1,051件中984件正解（93.6%）、1,020件受理、31件期限・順序で棄却
+- latency: 受理token中央値250 ms、p95 313 ms、観測からFIRE tick中央値281 ms
+- 操作: WAIT 27.3%、game request 1,072、API error 0
+- OpenRouter報告実費: 10 runで`$0.01106659`
+
+設計境界は[一文字運動野](docs/v4-direct-motor.md)、全seed・集計・ボトルネックは
+[V4各10回実験](docs/experiment-v4-10x.md)、promptの面白い転び方は
+[六択を一行で教えたら三問落とした](docs/v4-probe-language-failure.md)へ残しています。
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
@@ -235,11 +291,12 @@ Thought Leak Rangeは世界初を主張しません。現在の差は、**world�
 
 ## Roadmap
 
-- V3の黒板を「注入するだけ」から、精度を壊さず協調へ使える表現へ育てる
-- 4 Agentを別model / 別providerへ散らし、一社内queueと429を避ける
+- V4の196-token教科書を、6 / 6 probeを壊さず短縮・cache・fine-tuneする
+- 古い座標へ固定pulseを出す代わりに、LLM自身へ速度・予測時刻つきtokenを選ばせる
 - labels版とraw pixels / ASCII / depth版を同じunpaused条件で比較する
 - synchronousにworldを止めるbaselineと、35 Hz asynchronous版を同じmodelで比較する
-- 複数cloud requestを時間差で走らせ、最新観測だけが身体を取れる三交代制を試す
+- V3の黒板は別branchの四人会議として、精度を壊さない協調表現へ育てる
+- score上のkillと、弾で確認できたhit-confirmed killを常に分ける
 
 ## 生成物
 
@@ -257,6 +314,7 @@ API keyはどのfileにも保存しません。HTTP errorへkeyが混ざった�
 - markerの文法は `[[ACT run=... obs=... ttl=... action=...]]` のみ
 - `direct-bit`はresponseごとにparserを分離し、最初の非空白`1 / 0`以外はfail closed
 - `four-agent`もresponseごとに観測番号と担当動作を固定し、古い世代は実行しない
+- `direct-motor`は最初の非空白`0`〜`5`だけを読み、最大5 tick・400 msで必ず失効
 - actionは`WAIT / LEFT / RIGHT / FIRE`のallow-list
 - nonce、観測番号、TTL、重複、最大request数、費用見積りを検査
 - `ARMED`だけでは撃たず、最新tickで敵が中央・弾薬ありの時だけlocal spineが発砲
