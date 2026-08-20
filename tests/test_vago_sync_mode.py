@@ -22,6 +22,23 @@ def test_cli_exposes_vago_sync_world_clock() -> None:
         ]
     )
     assert args.world_clock == "vago-sync"
+    assert args.vago_frame_skip == 1
+
+
+def test_cli_exposes_vago_benchmark_frame_skip() -> None:
+    args = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "vago-sync",
+            "--vago-frame-skip",
+            "4",
+        ]
+    )
+
+    assert args.vago_frame_skip == 4
 
 
 def test_cli_defaults_to_the_formal_legacy_motor_baseline() -> None:
@@ -89,6 +106,20 @@ def test_cli_requires_the_explicit_formal_d_body() -> None:
                 "direct-motor",
                 "--world-clock",
                 "clock-thread",
+            ]
+        )
+    assert error.value.code == 2
+
+
+def test_cli_rejects_vago_frame_skip_on_unpaused_world() -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-motor",
+                "--vago-frame-skip",
+                "4",
             ]
         )
     assert error.value.code == 2
@@ -163,3 +194,38 @@ def test_vago_sync_mock_freezes_during_request_and_runs_serially(tmp_path) -> No
     assert summary["motor_token_preemptions"] == 0
     assert summary["sync_fail_closed_wait_ticks"] == 0
     assert waits and all(event["game_tick_delta"] == 0 for event in waits)
+
+
+def test_vago_sync_frame_skip_four_advances_four_native_tics_per_fire(tmp_path) -> None:
+    artifacts = RunArtifacts(
+        base_dir=tmp_path,
+        run_id="abc123def456",
+        save_thoughts=False,
+    )
+    try:
+        summary = asyncio.run(
+            run_practice_range(
+                pilot=MockReasoningPilot(tap_mode="direct-motor"),
+                run_id="abc123def456",
+                artifacts=artifacts,
+                duration_seconds=0.1,
+                observation_interval=0.01,
+                lanes=3,
+                request_limit=4,
+                visible=False,
+                seed=7,
+                show_thoughts=False,
+                tap_mode="direct-motor",
+                scenario="defend_the_center",
+                world_clock="vago-sync",
+                motor_token_max_age_ms=400,
+                vago_frame_skip=4,
+            )
+        )
+    finally:
+        artifacts.close()
+
+    assert summary["target_ticks"] == 4
+    assert summary["ticks"] == 4
+    assert summary["requests_launched"] == 1
+    assert summary["vago_frame_skip"] == 4

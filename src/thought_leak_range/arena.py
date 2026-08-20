@@ -202,7 +202,11 @@ class PracticeRange:
         state = self.game.get_state()
         return None if state is None else state.screen_buffer.copy()
 
-    def step(self, action: Action) -> float:
+    def step(self, action: Action, *, ticks: int = 1) -> float:
+        if ticks < 1:
+            raise ValueError("step ticks must be positive")
+        if self.async_player and ticks != 1:
+            raise ValueError("ASYNC_PLAYER step ticks must remain one")
         vector = [False] * len(self._buttons)
         button = None
         if action is Action.LEFT:
@@ -234,9 +238,9 @@ class PracticeRange:
             self._refresh_game_tick()
             return after_total - before_total
 
-        reward = float(self.game.make_action(vector, 1))
+        reward = float(self.game.make_action(vector, ticks))
         self.total_reward += reward
-        self.ticks += 1
+        self._refresh_game_tick()
         return reward
 
     def _refresh_game_tick(self) -> int:
