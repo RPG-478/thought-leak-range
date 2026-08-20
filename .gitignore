@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 .env
 .env.*
+!.env.example
 runs/
 _vizdoom.ini
 .coverage
