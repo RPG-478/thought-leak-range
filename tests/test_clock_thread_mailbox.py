@@ -379,12 +379,14 @@ def test_formal_d_runner_keeps_cloud_side_out_of_the_game_thread(monkeypatch, tm
                 world_clock="clock-thread",
                 motor_body="clock-thread",
                 motor_token_max_age_ms=400,
+                motor_flat_pulse_ticks=4,
             )
         )
     finally:
         artifacts.close()
 
     assert summary["formal_condition"] == "D"
+    assert summary["motor_flat_pulse_ticks"] == 4
     assert summary["clock_backend"] == "vizdoom-player-clock-thread"
     assert summary["native_action_expiry_model"] == "PLAYER_make_action_one_tick"
     assert summary["initialization_excluded_from_episode_clock"] is True

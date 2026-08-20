@@ -791,6 +791,8 @@ async def run_practice_range(
     motor_token_max_age_ms: int = 400,
     vago_frame_skip: int = 1,
     vago_flat_pulse: bool = False,
+    motor_flat_pulse_ticks: int | None = None,
+    clock_capture_frames: bool = False,
 ) -> dict[str, object]:
     if duration_seconds <= 0 or observation_interval <= 0:
         raise ValueError("duration and observation interval must be positive")
@@ -808,6 +810,10 @@ async def run_practice_range(
         raise ValueError("VAGO frame skip requires the vago-sync world clock")
     if world_clock != "vago-sync" and vago_flat_pulse:
         raise ValueError("VAGO flat pulse requires the vago-sync world clock")
+    if world_clock != "clock-thread" and motor_flat_pulse_ticks is not None:
+        raise ValueError("motor flat pulse ticks require the clock-thread world clock")
+    if world_clock != "clock-thread" and clock_capture_frames:
+        raise ValueError("clock frame capture requires the clock-thread world clock")
     if world_clock == "clock-thread":
         if tap_mode not in {"direct-motor", "direct-motor-lite"}:
             raise ValueError("clock-thread currently requires a direct-motor mode")
@@ -827,6 +833,8 @@ async def run_practice_range(
             scenario=scenario,
             motor_token_max_age_ms=motor_token_max_age_ms,
             tap_mode=tap_mode,
+            motor_flat_pulse_ticks=motor_flat_pulse_ticks,
+            clock_capture_frames=clock_capture_frames,
         )
     if motor_body == "clock-thread":
         raise ValueError("clock-thread motor body requires world-clock clock-thread")
@@ -1520,6 +1528,8 @@ async def _run_player_clock_thread_motor_range(
     scenario: str,
     motor_token_max_age_ms: int,
     tap_mode: str,
+    motor_flat_pulse_ticks: int | None,
+    clock_capture_frames: bool,
 ) -> dict[str, object]:
     """Run formal D: PLAYER owns the native clock; asyncio owns only requests."""
 
@@ -1535,6 +1545,8 @@ async def _run_player_clock_thread_motor_range(
         seed=seed,
         scenario=scenario,
         motor_token_max_age_ms=motor_token_max_age_ms,
+        flat_pulse_ticks=motor_flat_pulse_ticks,
+        capture_frames=clock_capture_frames,
     )
     recorder = ReplayRecorder()
     tasks: dict[asyncio.Task[StreamResult], int] = {}
@@ -1553,6 +1565,7 @@ async def _run_player_clock_thread_motor_range(
         clock_backend="vizdoom-player-clock-thread",
         configured_lanes=lanes,
         motor_token_max_age_ms=motor_token_max_age_ms,
+        motor_flat_pulse_ticks=motor_flat_pulse_ticks,
         formal_condition="D",
     )
     clock.start()
@@ -1660,8 +1673,15 @@ async def _run_player_clock_thread_motor_range(
         if result.active_wall_ms > 0
         else 0.0
     )
-    clock_rate_complete = result.episode_finished or effective_tick_hz >= 35.0 * 0.90
-    comparison_valid = active_duration_complete and clock_rate_complete
+    # Dying completes the episode duration, but it cannot excuse a slowed
+    # native clock. Parallel ViZDoom processes exposed that the old `or`
+    # mislabeled 23-30 Hz deaths as valid 35 Hz trials.
+    clock_rate_complete = effective_tick_hz >= 35.0 * 0.90
+    comparison_valid = (
+        active_duration_complete
+        and clock_rate_complete
+        and not clock.capture_frames
+    )
     gif_written = recorder.save(artifacts.gif_path)
     marker_latency = metrics.marker_latency_ms
     summary: dict[str, object] = {
@@ -1673,6 +1693,7 @@ async def _run_player_clock_thread_motor_range(
         "motor_body": "clock-thread",
         "clock_backend": "vizdoom-player-clock-thread",
         "formal_condition": "D",
+        "motor_flat_pulse_ticks": motor_flat_pulse_ticks,
         "duration_basis": "active_wall_time",
         "duration_ms": round(result.active_wall_ms, 3),
         "initialization_ms": round(result.initialization_ms, 3),
@@ -1748,6 +1769,7 @@ async def _run_player_clock_thread_motor_range(
             for reason, invalid in (
                 ("active_duration_incomplete", not active_duration_complete),
                 ("native_clock_rate_below_90_percent", not clock_rate_complete),
+                ("observation_only_frame_capture", clock.capture_frames),
             )
             if invalid
         ],

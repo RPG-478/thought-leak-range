@@ -223,6 +223,23 @@ def _add_range_arguments(
             "ignoring V4 SHORT/LONG pulse multiplication"
         ),
     )
+    parser.add_argument(
+        "--motor-flat-pulse-ticks",
+        type=_bounded_int(1, 8),
+        default=None,
+        help=(
+            "override every direct-motor token to this many native tics on "
+            "the continuous clock-thread body"
+        ),
+    )
+    parser.add_argument(
+        "--clock-capture-frames",
+        action="store_true",
+        help=(
+            "capture observation-only GIF frames on clock-thread; this adds "
+            "screen reads and is not valid for formal timing comparisons"
+        ),
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -248,6 +265,10 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--vago-frame-skip other than 1 requires --world-clock vago-sync")
     if args.vago_flat_pulse and args.world_clock != "vago-sync":
         parser.error("--vago-flat-pulse requires --world-clock vago-sync")
+    if args.motor_flat_pulse_ticks is not None and args.world_clock != "clock-thread":
+        parser.error("--motor-flat-pulse-ticks requires --world-clock clock-thread")
+    if args.clock_capture_frames and args.world_clock != "clock-thread":
+        parser.error("--clock-capture-frames requires --world-clock clock-thread")
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
@@ -299,6 +320,8 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             motor_token_max_age_ms=args.motor_token_max_age_ms,
             vago_frame_skip=args.vago_frame_skip,
             vago_flat_pulse=args.vago_flat_pulse,
+            motor_flat_pulse_ticks=args.motor_flat_pulse_ticks,
+            clock_capture_frames=args.clock_capture_frames,
         )
         result = {
             "mode": "mock",
@@ -417,6 +440,8 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             motor_token_max_age_ms=args.motor_token_max_age_ms,
             vago_frame_skip=args.vago_frame_skip,
             vago_flat_pulse=args.vago_flat_pulse,
+            motor_flat_pulse_ticks=args.motor_flat_pulse_ticks,
+            clock_capture_frames=args.clock_capture_frames,
         )
         result = {
             "mode": "live",

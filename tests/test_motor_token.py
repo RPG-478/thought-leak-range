@@ -221,6 +221,24 @@ def test_game_tick_lease_commits_only_newest_result_once_per_tick():
     assert next_tick.expires_at_game_tick == 2
 
 
+def test_game_tick_lease_can_flatten_every_token_to_four_native_ticks():
+    arbiter = MotorTokenArbiter(
+        run_id=RUN_ID,
+        game_tick_lease=True,
+        flat_pulse_ticks=4,
+    )
+    assert arbiter.offer(
+        _frame(obs=1, token=MotorToken.FIRE, received_at=1.1, game_tick=0),
+        captured_at=1.0,
+        now=1.1,
+    ).accepted
+
+    ticks = [arbiter.take_tick(game_tick=tick, now=1.11 + tick / 35) for tick in range(5)]
+    assert [tick.action for tick in ticks[:4] if tick is not None] == [Action.FIRE] * 4
+    assert ticks[0].expires_at_game_tick == 4
+    assert ticks[4] is None
+
+
 def test_hold5_is_preempted_by_newer_fire_at_next_native_tick():
     arbiter = MotorTokenArbiter(run_id=RUN_ID, game_tick_lease=True)
     assert arbiter.offer(

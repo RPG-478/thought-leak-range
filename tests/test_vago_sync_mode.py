@@ -82,6 +82,22 @@ def test_cli_defaults_to_the_formal_legacy_motor_baseline() -> None:
     assert formal_d.world_clock == "clock-thread"
     assert formal_d.motor_body == "clock-thread"
 
+    flat_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+            "--motor-flat-pulse-ticks",
+            "4",
+        ]
+    )
+    assert flat_d.motor_flat_pulse_ticks == 4
+    assert flat_d.clock_capture_frames is False
+
     lite_d = build_parser().parse_args(
         [
             "mock",
