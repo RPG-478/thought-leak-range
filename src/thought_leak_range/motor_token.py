@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from enum import StrEnum
+from math import ceil, inf
 
 from .protocol import Action
 
@@ -15,6 +17,8 @@ class MotorToken(StrEnum):
     RIGHT_SHORT = "3"
     RIGHT_LONG = "4"
     FIRE = "5"
+    LEFT_HOLD = "l"
+    RIGHT_HOLD = "r"
 
     @property
     def action(self) -> Action:
@@ -25,6 +29,8 @@ class MotorToken(StrEnum):
             MotorToken.RIGHT_SHORT: Action.RIGHT,
             MotorToken.RIGHT_LONG: Action.RIGHT,
             MotorToken.FIRE: Action.FIRE,
+            MotorToken.LEFT_HOLD: Action.LEFT,
+            MotorToken.RIGHT_HOLD: Action.RIGHT,
         }[self]
 
     @property
@@ -36,6 +42,8 @@ class MotorToken(StrEnum):
             MotorToken.RIGHT_SHORT: 2,
             MotorToken.RIGHT_LONG: 5,
             MotorToken.FIRE: 1,
+            MotorToken.LEFT_HOLD: 5,
+            MotorToken.RIGHT_HOLD: 5,
         }[self]
 
 
@@ -45,6 +53,8 @@ class MotorTokenFrame:
     obs: int
     token: MotorToken
     received_at: float
+    obs_game_tick: int | None = None
+    captured_at: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,24 +70,42 @@ class ActivePulse:
     frame: MotorTokenFrame
     remaining_ticks: int
     expires_at: float
+    expires_at_game_tick: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MotorTick:
     action: Action
     frame: MotorTokenFrame
+    preempted: MotorTokenFrame | None = None
+    committed: bool = False
+    superseded_before_commit: int = 0
+    expires_at_game_tick: int | None = None
 
 
 class MotorTokenParser:
     """Parse one request-bound motor token from the first visible character."""
 
-    def __init__(self, *, expected_run_id: str, expected_obs: int) -> None:
+    def __init__(
+        self,
+        *,
+        expected_run_id: str,
+        expected_obs: int,
+        expected_game_tick: int | None = None,
+        allowed_tokens: frozenset[MotorToken] | None = None,
+        token_aliases: Mapping[str, MotorToken] | None = None,
+    ) -> None:
         if not re.fullmatch(r"[a-z0-9]{6,32}", expected_run_id):
             raise ValueError("run id must be 6-32 lowercase ASCII letters/digits")
         if expected_obs < 0:
             raise ValueError("expected observation must be nonnegative")
+        if expected_game_tick is not None and expected_game_tick < 0:
+            raise ValueError("expected game tick must be nonnegative")
         self.expected_run_id = expected_run_id
         self.expected_obs = expected_obs
+        self.expected_game_tick = expected_game_tick
+        self.allowed_tokens = allowed_tokens
+        self.token_aliases = token_aliases
         self._finished = False
 
     def feed(
@@ -89,9 +117,16 @@ class MotorTokenParser:
         if not candidate:
             return []
         self._finished = True
-        try:
-            token = MotorToken(candidate[0])
-        except ValueError:
+        if self.token_aliases is not None:
+            token = self.token_aliases.get(candidate[0])
+            if token is None:
+                return []
+        else:
+            try:
+                token = MotorToken(candidate[0])
+            except ValueError:
+                return []
+        if self.allowed_tokens is not None and token not in self.allowed_tokens:
             return []
         return [
             MotorTokenFrame(
@@ -99,16 +134,19 @@ class MotorTokenParser:
                 obs=self.expected_obs,
                 token=token,
                 received_at=time.monotonic() if now is None else now,
+                obs_game_tick=self.expected_game_tick,
             )
         ]
 
 
 class MotorTokenArbiter:
-    """Execute fresh monotonic motor tokens without requiring latest-capture status.
+    """Execute fresh monotonic motor tokens.
 
-    Capturing a newer observation does not retroactively cancel a still-fresh
-    response. Whichever accepted response has the highest observation number
-    preempts the active pulse; out-of-order older responses fail closed.
+    The default mode retains the original wall-clock behavior for compatibility.
+    ``game_tick_lease`` is the ASYNC_PLAYER path: responses are queued when
+    they arrive, one newest eligible response is committed at most once per
+    game tick, and a pulse expires from the ViZDoom clock rather than Python
+    loop count.
     """
 
     def __init__(
@@ -117,6 +155,7 @@ class MotorTokenArbiter:
         run_id: str,
         maximum_age_ms: int = 400,
         ticks_per_second: int = 35,
+        game_tick_lease: bool = False,
     ) -> None:
         if not re.fullmatch(r"[a-z0-9]{6,32}", run_id):
             raise ValueError("run id must be 6-32 lowercase ASCII letters/digits")
@@ -127,8 +166,15 @@ class MotorTokenArbiter:
         self.run_id = run_id
         self.maximum_age_ms = maximum_age_ms
         self.ticks_per_second = ticks_per_second
+        self.game_tick_lease = game_tick_lease
+        self.maximum_age_ticks = max(
+            1, ceil(maximum_age_ms * ticks_per_second / 1000.0)
+        )
         self.highest_accepted_obs = -1
         self._active: ActivePulse | None = None
+        self._pending: list[MotorTokenFrame] = []
+        self._last_committed_obs = -1
+        self._last_taken_game_tick: int | None = None
 
     def offer(
         self,
@@ -136,6 +182,7 @@ class MotorTokenArbiter:
         *,
         captured_at: float,
         now: float | None = None,
+        captured_game_tick: int | None = None,
     ) -> MotorTokenDecision:
         offered_at = time.monotonic() if now is None else now
         if frame.run_id != self.run_id:
@@ -147,6 +194,33 @@ class MotorTokenArbiter:
         if (offered_at - captured_at) * 1000.0 > self.maximum_age_ms:
             return MotorTokenDecision(False, "observation_expired", frame)
 
+        # Keep capture metadata on the accepted frame in both compatibility
+        # modes. The legacy wall-clock path still emits age diagnostics when a
+        # FIRE pulse is executed, so leaving this field unset would make the
+        # measurement path fail only on the real-shot branch.
+        if frame.captured_at != captured_at:
+            frame = replace(frame, captured_at=captured_at)
+
+        if self.game_tick_lease:
+            game_tick = (
+                frame.obs_game_tick
+                if frame.obs_game_tick is not None
+                else captured_game_tick
+            )
+            if game_tick is None:
+                return MotorTokenDecision(False, "missing_obs_game_tick", frame)
+            if game_tick < 0:
+                return MotorTokenDecision(False, "invalid_obs_game_tick", frame)
+            if frame.obs_game_tick != game_tick or frame.captured_at != captured_at:
+                frame = replace(
+                    frame,
+                    obs_game_tick=game_tick,
+                    captured_at=captured_at,
+                )
+            self.highest_accepted_obs = frame.obs
+            self._pending.append(frame)
+            return MotorTokenDecision(True, "queued_for_game_tick", frame)
+
         preempted = self._active.frame if self._active is not None else None
         self.highest_accepted_obs = frame.obs
         pulse_seconds = (frame.token.pulse_ticks + 1) / self.ticks_per_second
@@ -157,7 +231,17 @@ class MotorTokenArbiter:
         )
         return MotorTokenDecision(True, "fresh_monotonic", frame, preempted)
 
-    def take_tick(self, *, now: float | None = None) -> MotorTick | None:
+    def take_tick(
+        self,
+        *,
+        now: float | None = None,
+        game_tick: int | None = None,
+    ) -> MotorTick | None:
+        if self.game_tick_lease:
+            if game_tick is None:
+                raise ValueError("game_tick is required for game-tick lease")
+            return self._take_game_tick(game_tick=game_tick, now=now)
+
         checked_at = time.monotonic() if now is None else now
         active = self._active
         if active is None:
@@ -171,5 +255,83 @@ class MotorTokenArbiter:
             self._active = None
         return tick
 
+    def _take_game_tick(
+        self, *, game_tick: int, now: float | None
+    ) -> MotorTick | None:
+        if game_tick < 0:
+            raise ValueError("game_tick must be nonnegative")
+        checked_at = time.monotonic() if now is None else now
+
+        # The Python loop may revisit one native tick. It may keep the held
+        # action, but it cannot commit a second response at that same tick.
+        if self._last_taken_game_tick == game_tick:
+            return self._active_for_game_tick(game_tick)
+        self._last_taken_game_tick = game_tick
+
+        active = self._active
+        if (
+            active is not None
+            and active.expires_at_game_tick is not None
+            and game_tick >= active.expires_at_game_tick
+        ):
+            self._active = None
+            active = None
+
+        eligible: list[MotorTokenFrame] = []
+        future: list[MotorTokenFrame] = []
+        for frame in self._pending:
+            if frame.obs <= self._last_committed_obs:
+                continue
+            if frame.obs_game_tick is None or frame.captured_at is None:
+                continue
+            tick_age = game_tick - frame.obs_game_tick
+            if tick_age < 0:
+                future.append(frame)
+                continue
+            if tick_age > self.maximum_age_ticks:
+                continue
+            if (checked_at - frame.captured_at) * 1000.0 > self.maximum_age_ms:
+                continue
+            eligible.append(frame)
+        self._pending = future
+
+        if eligible:
+            selected = max(eligible, key=lambda item: item.obs)
+            preempted = active.frame if active is not None else None
+            self._last_committed_obs = selected.obs
+            self._active = ActivePulse(
+                frame=selected,
+                remaining_ticks=selected.token.pulse_ticks,
+                expires_at=inf,
+                expires_at_game_tick=game_tick + selected.token.pulse_ticks,
+            )
+            return MotorTick(
+                action=selected.token.action,
+                frame=selected,
+                preempted=preempted,
+                committed=True,
+                superseded_before_commit=len(eligible) - 1,
+                expires_at_game_tick=game_tick + selected.token.pulse_ticks,
+            )
+
+        return self._active_for_game_tick(game_tick)
+
+    def _active_for_game_tick(self, game_tick: int) -> MotorTick | None:
+        active = self._active
+        if active is None:
+            return None
+        if (
+            active.expires_at_game_tick is not None
+            and game_tick >= active.expires_at_game_tick
+        ):
+            self._active = None
+            return None
+        return MotorTick(
+            action=active.frame.token.action,
+            frame=active.frame,
+            expires_at_game_tick=active.expires_at_game_tick,
+        )
+
     def panic_release(self) -> None:
         self._active = None
+        self._pending.clear()

@@ -269,6 +269,20 @@ uv run python -m thought_leak_range live `
   --max-usd 0.025
 ```
 
+`--motor-body`の既定値は`legacy`だが、world clockが`ASYNC_PLAYER`なのでC相当であり、formal Bではない。
+formal Bは親`6874fa3`の`Mode.PLAYER`固定runnerへ敵認識だけを当てた、
+commit `93e157f`（branch `agent/legacy-v4-enemy-fix`、worktree
+`prototypes/thought-leak-range-legacy-v4`）で取る。
+`--motor-body tick-lease`は、同じgame tick内の完了を一件へまとめ、pulseをViZDoom tickで
+期限管理するASYNC診断条件である。ASYNC_PLAYERのnative actionが期限を越えて保持されたrunは、
+summaryの`comparison_valid=false`として性能平均へ入れない。
+正式Dは`--world-clock clock-thread --motor-body clock-thread`で起動する。ViZDoomを専用の
+`Mode.PLAYER` clock threadだけが所有し、Cloud asyncioはdecision mailboxへ結果を渡す。
+そのためCloud待ち中もworldは1 native tickずつ進み、FIREの保持期限がPython loopへ依存しない。
+formal Dの比較runは追加のGIF用`frame()`読み出しを行わず、summaryで
+`initialization_ms`、`active_wall_ms`、`simulation_duration_ms`、`effective_tick_hz`を分離する。
+初期化時間やnative clockの低下で条件を満たさないrunは`comparison_valid=false`になる。
+
 ゲームへ入る前に6 tokenを一度ずつ問い合わせ、一つでも違えばfail closedします。
 最初の条件文だけのpromptは6問中3問を誤り停止しました。few-shot例へ直した後は、
 10 runすべての起動試験が6 / 6で通過しています。
@@ -282,6 +296,31 @@ uv run python -m thought_leak_range live `
 設計境界は[一文字運動野](docs/v4-direct-motor.md)、全seed・集計・ボトルネックは
 [V4各10回実験](docs/experiment-v4-10x.md)、promptの面白い転び方は
 [六択を一行で教えたら三問落とした](docs/v4-probe-language-failure.md)へ残しています。
+
+### V5実験: 意味4文字 + HOLD5
+
+V4の核である「各Cloud responseが単体で実行できる完全命令」と3 laneを残し、
+wire tokenを意味のある`W / L / R / F`へ削りました。`L/R`は最大5 native tickだけ保持し、
+別laneから新しい完全命令が届けば次のnative tickで即preemptします。`F`は常に1 tickだけです。
+
+```powershell
+uv run python -m thought_leak_range live `
+  --env-file C:\path\outside\repo\.env `
+  --model meta-llama/llama-3.1-8b-instruct `
+  --provider Groq --no-provider-fallback `
+  --tap-mode direct-motor-lite --lanes 3 `
+  --scenario defend_the_center --duration 15 `
+  --observation-interval 0.10 `
+  --motor-token-max-age-ms 400 `
+  --world-clock clock-thread --motor-body clock-thread `
+  --max-tokens 16 --max-requests 180 --max-usd 0.025
+```
+
+Formal Dのseed 7〜9は`2 / 1 / 2 kill`。方向保持、preempt、1 tick FIRE、35 Hz、
+期限違反0はすべて成立しましたが、V4の`2 / 4 / 4 kill`には負けました。
+4択化で意味精度は上がった一方、短い微調整まで5 tickになって実弾18発中5 hitへ低下しました。
+つまりV4のpulse長は単なるCloud待ち対策ではなく、照準の一部でもありました。
+詳細は[転換点の再読](../../docs/実験/2026-08-21-V3-V4転換点の再読.md)へ。
 
 ### V4-S: 停止世界へ同じV4を移植
 
@@ -378,6 +417,8 @@ API keyはどのfileにも保存しません。HTTP errorへkeyが混ざった�
 - `direct-bit`はresponseごとにparserを分離し、最初の非空白`1 / 0`以外はfail closed
 - `four-agent`もresponseごとに観測番号と担当動作を固定し、古い世代は実行しない
 - `direct-motor`は最初の非空白`0`〜`5`だけを読み、最大5 tick・400 msで必ず失効
+- `--motor-body tick-lease`では`obs_game_tick`のない結果を実行せず、1 game tickにつきcommitは最大1件
+- formal Dの`clock-thread`では`DoomGame`をgame threadだけが触り、`make_action(..., 1)`を1 native tickずつ実行
 - actionは`WAIT / LEFT / RIGHT / FIRE`のallow-list
 - nonce、観測番号、TTL、重複、最大request数、費用見積りを検査
 - `ARMED`だけでは撃たず、最新tickで敵が中央・弾薬ありの時だけlocal spineが発砲

@@ -25,6 +25,7 @@ class Observation:
     kills: int
     hits: int
     damage: int
+    game_tick: int = 0
 
     def prompt_text(self) -> str:
         dx = "unknown" if self.target_dx is None else f"{self.target_dx:+.3f}"
@@ -102,6 +103,7 @@ class PracticeRange:
         self.total_reward = 0.0
         self.ticks = 0
         self._episode_time_origin = int(self.game.get_episode_time())
+        self._target_lock_id: int | None = None
 
     def close(self) -> None:
         try:
@@ -121,12 +123,14 @@ class PracticeRange:
 
     def observe(self, *, seq: int) -> Observation:
         state = self.game.get_state()
+        game_tick = self._refresh_game_tick()
         health = int(self.game.get_game_variable(vzd.GameVariable.HEALTH))
         ammo = int(self.game.get_game_variable(vzd.GameVariable.AMMO2))
         kills = int(self.game.get_game_variable(vzd.GameVariable.KILLCOUNT))
         hits = int(self.game.get_game_variable(vzd.GameVariable.HITCOUNT))
         damage = int(self.game.get_game_variable(vzd.GameVariable.DAMAGECOUNT))
         if state is None:
+            self._target_lock_id = None
             return Observation(
                 seq=seq,
                 captured_at=time.monotonic(),
@@ -140,6 +144,7 @@ class PracticeRange:
                 kills=kills,
                 hits=hits,
                 damage=damage,
+                game_tick=game_tick,
             )
 
         frame = state.screen_buffer
@@ -147,9 +152,13 @@ class PracticeRange:
         candidates = [
             label
             for label in state.labels
-            if _is_probable_monster(str(label.object_name))
+            if _is_probable_monster(
+                str(label.object_name),
+                getattr(label, "object_category", None),
+            )
         ]
         if not candidates:
+            self._target_lock_id = None
             return Observation(
                 seq=seq,
                 captured_at=time.monotonic(),
@@ -163,9 +172,14 @@ class PracticeRange:
                 kills=kills,
                 hits=hits,
                 damage=damage,
+                game_tick=game_tick,
             )
 
-        target = max(candidates, key=lambda label: label.width * label.height)
+        target, self._target_lock_id = _select_locked_target(
+            candidates,
+            locked_target_id=self._target_lock_id,
+        )
+        assert target is not None
         center_x = float(target.x) + float(target.width) / 2.0
         dx = (center_x - width / 2.0) / (width / 2.0)
         return Observation(
@@ -181,6 +195,7 @@ class PracticeRange:
             kills=kills,
             hits=hits,
             damage=damage,
+            game_tick=game_tick,
         )
 
     def frame(self):
@@ -216,10 +231,7 @@ class PracticeRange:
             self.game.advance_action()
             after_total = float(self.game.get_total_reward())
             self.total_reward = after_total
-            self.ticks = max(
-                self.ticks,
-                int(self.game.get_episode_time()) - self._episode_time_origin,
-            )
+            self._refresh_game_tick()
             return after_total - before_total
 
         reward = float(self.game.make_action(vector, 1))
@@ -227,10 +239,19 @@ class PracticeRange:
         self.ticks += 1
         return reward
 
+    def _refresh_game_tick(self) -> int:
+        current = max(
+            0,
+            int(self.game.get_episode_time()) - self._episode_time_origin,
+        )
+        self.ticks = max(self.ticks, current)
+        return self.ticks
+
 
 _MONSTER_TERMS = (
     "zombie",
     "shotgunguy",
+    "marinechainsawvzd",
     "chaingunguy",
     "imp",
     "demon",
@@ -249,9 +270,50 @@ _MONSTER_TERMS = (
 )
 
 
-def _is_probable_monster(name: str) -> bool:
+def _is_probable_monster(name: str, category: object | None = None) -> bool:
+    category_folded = str(category or "").casefold().replace("_", "")
+    if category_folded.endswith("monster"):
+        return True
     folded = name.casefold().replace("_", "")
     return any(term in folded for term in _MONSTER_TERMS)
+
+
+def _select_locked_target(
+    candidates: list[object],
+    *,
+    locked_target_id: int | None,
+) -> tuple[object | None, int | None]:
+    """Choose one near-looking enemy without swapping targets every frame.
+
+    Projected label area is the only distance proxy available on the normal
+    observation path. Keep the current identity for as long as it remains
+    visible; choose a new nearest-looking enemy only after it disappears.
+    This stabilizes perception; it does not choose LEFT/RIGHT/FIRE for the model.
+    """
+
+    if not candidates:
+        return None, None
+
+    challenger = max(
+        candidates,
+        key=lambda label: float(getattr(label, "width"))
+        * float(getattr(label, "height")),
+    )
+    if locked_target_id is None:
+        return challenger, int(getattr(challenger, "object_id"))
+
+    locked = next(
+        (
+            label
+            for label in candidates
+            if int(getattr(label, "object_id")) == locked_target_id
+        ),
+        None,
+    )
+    if locked is None:
+        return challenger, int(getattr(challenger, "object_id"))
+
+    return locked, locked_target_id
 
 
 def _ascii_scenario_paths(scenario: str) -> tuple[Path, Path]:

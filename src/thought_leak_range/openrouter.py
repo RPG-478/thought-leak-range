@@ -138,6 +138,7 @@ class OpenRouterReasoningClient:
         provider_order: tuple[str, ...] = (),
         provider_allow_fallbacks: bool = True,
         preferred_max_latency_seconds: float | None = 0.2,
+        session_id: str | None = None,
     ) -> None:
         if not api_key.strip():
             raise ValueError("OpenRouter API key is empty")
@@ -167,6 +168,7 @@ class OpenRouterReasoningClient:
         self.provider_order = provider_order
         self.provider_allow_fallbacks = provider_allow_fallbacks
         self.preferred_max_latency_seconds = preferred_max_latency_seconds
+        self.session_id = session_id.strip() if session_id and session_id.strip() else None
         self._client = httpx.AsyncClient(
             http2=True,
             timeout=httpx.Timeout(
@@ -237,6 +239,10 @@ class OpenRouterReasoningClient:
             "stream_options": {"include_usage": True},
             "provider": provider,
         }
+        if self.session_id is not None:
+            # OpenRouter uses this stable key for provider sticky routing and
+            # prompt-cache affinity. It contains no user or secret data.
+            payload["session_id"] = self.session_id
         if stop:
             payload["stop"] = stop
         if temperature is not None:

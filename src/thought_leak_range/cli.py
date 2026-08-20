@@ -76,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="preferred provider p50 time-to-first-token in seconds",
     )
     live.add_argument(
+        "--session-id",
+        help="stable OpenRouter cache/sticky-routing session key",
+    )
+    live.add_argument(
         "--direct-bit-keep-reasoning",
         action="store_true",
         help=(
@@ -132,6 +136,7 @@ def _add_range_arguments(
             "direct-bit",
             "four-agent",
             "direct-motor",
+            "direct-motor-lite",
         ),
         default="marker",
         help=(
@@ -141,7 +146,9 @@ def _add_range_arguments(
             "decision to exactly one FIRE tick; direct-bit does the same from "
             "the first visible 1/0 without a textual nonce; four-agent races "
             "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard; "
-            "direct-motor lets one LLM choose a six-way action and pulse length"
+            "direct-motor lets one LLM choose a six-way action and pulse length; "
+            "direct-motor-lite uses semantic W/L/R/F, three lanes, and "
+            "preemptible five-tick direction holds"
         ),
     )
     parser.add_argument(
@@ -179,12 +186,24 @@ def _add_range_arguments(
         help="maximum source-observation age for a V4 direct motor token",
     )
     parser.add_argument(
+        "--motor-body",
+        choices=("legacy", "tick-lease", "clock-thread"),
+        default="legacy",
+        help=(
+            "legacy keeps the old arbiter on the current ASYNC_PLAYER runner; "
+            "formal PLAYER baseline B is the 6874fa3 worktree; tick-lease "
+            "enables the experimental ASYNC one-commit-per-game-tick body; "
+            "clock-thread is formal D"
+        ),
+    )
+    parser.add_argument(
         "--world-clock",
-        choices=("unpaused", "vago-sync"),
+        choices=("unpaused", "vago-sync", "clock-thread"),
         default="unpaused",
         help=(
             "unpaused keeps stepping at 35 Hz during cloud inference; vago-sync "
-            "freezes direct-motor V4 until its next streamed motor token"
+            "freezes direct-motor V4 until its next streamed motor token; "
+            "clock-thread gives formal D a dedicated PLAYER clock thread"
         ),
     )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
@@ -194,8 +213,20 @@ def main(argv: list[str] | None = None) -> None:
     _configure_utf8_console()
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.world_clock == "vago-sync" and args.tap_mode != "direct-motor":
-        parser.error("--world-clock vago-sync currently requires --tap-mode direct-motor")
+    motor_modes = {"direct-motor", "direct-motor-lite"}
+    if args.world_clock in {"vago-sync", "clock-thread"} and args.tap_mode not in motor_modes:
+        parser.error(
+            f"--world-clock {args.world_clock} currently requires "
+            "--tap-mode direct-motor or direct-motor-lite"
+        )
+    if args.world_clock == "clock-thread" and args.motor_body != "clock-thread":
+        parser.error(
+            "--world-clock clock-thread requires --motor-body clock-thread"
+        )
+    if args.motor_body == "clock-thread" and args.world_clock != "clock-thread":
+        parser.error(
+            "--motor-body clock-thread requires --world-clock clock-thread"
+        )
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
@@ -204,6 +235,7 @@ def main(argv: list[str] | None = None) -> None:
                 minimum_requests = {
                     "four-agent": 5,
                     "direct-motor": 7,
+                    "direct-motor-lite": 5,
                 }.get(args.tap_mode, 2)
                 if args.max_requests < minimum_requests:
                     parser.error(
@@ -238,6 +270,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             tap_mode=args.tap_mode,
             scenario=args.scenario,
             world_clock=args.world_clock,
+            motor_body=args.motor_body,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
@@ -247,6 +280,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
         result = {
             "mode": "mock",
             "world_clock": args.world_clock,
+            "motor_body": args.motor_body,
             "artifacts": str(artifacts.directory),
             "range": summary,
         }
@@ -278,6 +312,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
         provider_order=tuple(args.provider),
         provider_allow_fallbacks=args.provider_allow_fallbacks,
         preferred_max_latency_seconds=args.preferred_max_latency,
+        session_id=args.session_id,
     )
     pilot = OpenRouterPilot(
         client,
@@ -324,6 +359,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
                 "provider_order": args.provider,
                 "provider_allow_fallbacks": args.provider_allow_fallbacks,
                 "preferred_max_latency_seconds": args.preferred_max_latency,
+                "session_id": args.session_id,
                 "tap_mode": args.tap_mode,
                 "world_clock": args.world_clock,
                 "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
@@ -350,6 +386,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             tap_mode=args.tap_mode,
             scenario=args.scenario,
             world_clock=args.world_clock,
+            motor_body=args.motor_body,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
@@ -367,10 +404,12 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "provider_order": args.provider,
             "provider_allow_fallbacks": args.provider_allow_fallbacks,
             "preferred_max_latency_seconds": args.preferred_max_latency,
+            "session_id": args.session_id,
             "tap_mode": args.tap_mode,
             "scenario": args.scenario,
             "seed": args.seed,
             "world_clock": args.world_clock,
+            "motor_body": args.motor_body,
             "direct_max_age_ms": args.direct_max_age_ms,
             "direct_aim_assist": args.direct_aim_assist,
             "council_movement_ttl_ms": args.council_movement_ttl_ms,
