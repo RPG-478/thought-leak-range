@@ -34,6 +34,24 @@ The stopped condition won every pair: 10/10, with a mean stopped-minus-unpaused
 kill difference of +3.9 (range +2 to +6). The two-sided paired sign-test value
 is 0.001953125. Total reported cost was $0.02512097.
 
+## Why this unpaused mean is 2.5 instead of the earlier 3.5
+
+The earlier V4 report is not a stable performance constant. Three batches now
+exist under nominally similar settings:
+
+| Batch | Clock implementation | Total / mean kills |
+|---|---|---:|
+| First V4 benchmark | old Python manual tick | 35 / 3.5 |
+| Earlier clock-ablation unpaused side | old Python manual tick | 14 / 1.4 |
+| This repaired batch | `ASYNC_PLAYER` | 25 / 2.5 |
+
+The first V4 batch had 252.2 ms mean decision latency and 105 FIRE ticks, while
+this repaired batch had 265 ms accepted-token p50 and 60 FIRE ticks. The small
+latency shift changes preemption and firing opportunities in this unusually
+phase-sensitive pipeline. Therefore 2.5 is not presented as a reproduction of
+3.5; it is the unpaused arm of the current clock ablation. Reproducing the old
+mean requires another async-only batch to estimate current provider variance.
+
 ## Interpretation
 
 The stopped condition did not make the model more accurate; its semantic
