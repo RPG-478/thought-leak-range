@@ -7,6 +7,18 @@ V4 `direct-motor`ではLlama 3.1 8Bが毎回`0`〜`5`のmotor tokenを一つ返�
 その一文字が固定長のWAIT / LEFT / RIGHT / FIREへ直結します。local側は敵を見て
 操作を選び直さず、応答の年齢・順序・文法だけを検査します。
 
+## まず見る場所
+
+- [現在の非同期結果](docs/experiment-v4-async-flat-4.md): 全tokenを4 ticに揃えて平均4.0 kill
+- [停止世界の診断結果](docs/experiment-v4-s-vago-flat-4.md): 同じ頭と身体で平均26.3 kill
+- [設計と公平性の境界](docs/prior-art.md): VAGOへの反例になる部分／ならない部分
+- [全ドキュメント](docs/README.md)・[全リプレイ](docs/replays/README.md)
+- [公開前チェックリスト](docs/public-release-checklist.md)
+
+最新のclock ablationでは、意味正解率86.38%でも、平均232.8 ms古い命令を35 Hzの世界へ
+入れると同期scoreの15.2%まで落ちました。いまの主題は「LLMは判断できるか」から
+「正しくても古い一文字をどう身体へ届けるか」へ移っています。
+
 ```text
 ViZDoom labels (v/x/ammo) ── 0.1秒ごと ──> Llama 3.1 8B / Groq
           worldは35 Hzで止まらない             3 requestを時間差で重ねる
@@ -68,7 +80,8 @@ V2の5発5 hit replayも比較用に残しています。
 Python 3.12と[uv](https://docs.astral.sh/uv/)を使います。
 
 ```powershell
-cd prototypes/thought-leak-range
+git clone https://github.com/RPG-478/thought-leak-range.git
+cd thought-leak-range
 uv sync --extra dev --python 3.12
 ```
 
@@ -79,6 +92,7 @@ uv run python -m thought_leak_range mock --duration 6
 ```
 
 OpenRouter版は環境変数を使います。秘密値は引数やrepositoryへ書かないでください。
+`.env.example`には空の変数名だけを置いています。コピーした`.env`はGitから無視されます。
 
 ```powershell
 $env:OPENROUTER_API_KEY = Read-Host "OpenRouter API key"
