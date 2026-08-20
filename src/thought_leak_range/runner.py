@@ -790,6 +790,7 @@ async def run_practice_range(
     council_fire_max_age_ms: int = 300,
     motor_token_max_age_ms: int = 400,
     vago_frame_skip: int = 1,
+    vago_flat_pulse: bool = False,
 ) -> dict[str, object]:
     if duration_seconds <= 0 or observation_interval <= 0:
         raise ValueError("duration and observation interval must be positive")
@@ -805,6 +806,8 @@ async def run_practice_range(
         raise ValueError("VAGO frame skip must be between one and eight")
     if world_clock != "vago-sync" and vago_frame_skip != 1:
         raise ValueError("VAGO frame skip requires the vago-sync world clock")
+    if world_clock != "vago-sync" and vago_flat_pulse:
+        raise ValueError("VAGO flat pulse requires the vago-sync world clock")
     if world_clock == "clock-thread":
         if tap_mode not in {"direct-motor", "direct-motor-lite"}:
             raise ValueError("clock-thread currently requires a direct-motor mode")
@@ -845,6 +848,7 @@ async def run_practice_range(
             motor_body=motor_body,
             tap_mode=tap_mode,
             frame_skip=vago_frame_skip,
+            flat_pulse=vago_flat_pulse,
         )
 
     metrics = RunMetrics()
@@ -1776,6 +1780,7 @@ async def _run_vago_sync_motor_range(
     motor_body: str,
     tap_mode: str,
     frame_skip: int,
+    flat_pulse: bool,
 ) -> dict[str, object]:
     """Run V4 behind VAGO's blocking synchronous world clock.
 
@@ -1820,6 +1825,7 @@ async def _run_vago_sync_motor_range(
         motor_token_max_age_ms=motor_token_max_age_ms,
         motor_body=motor_body,
         frame_skip=frame_skip,
+        flat_pulse=flat_pulse,
     )
 
     with PracticeRange(
@@ -2000,6 +2006,9 @@ async def _run_vago_sync_motor_range(
                             break
                         execute_tick(motor_tick)
                         executed_ticks += 1
+                        if flat_pulse:
+                            arbiter.panic_release()
+                            break
 
                 await request_task
                 metrics.completed_requests += 1
@@ -2083,6 +2092,7 @@ async def _run_vago_sync_motor_range(
         "simulation_duration_ms": round(ticks / 35.0 * 1000.0, 3),
         "target_ticks": target_ticks,
         "vago_frame_skip": frame_skip,
+        "vago_flat_pulse": flat_pulse,
         "ticks": ticks,
         "stop_reason": stop_reason,
         "episode_finished": episode_finished,

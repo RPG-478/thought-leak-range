@@ -382,6 +382,9 @@ VAGO benchmark同様に各pulse tickを4 native tic保持する破壊的ablation
 `--vago-frame-skip 4`で明示的に有効化します。V4のLONGは20 ticになるため、通常実験の
 既定値は1のままです。
 
+VAGOの「一判断4 tic」へより近いflat bodyは、`--vago-frame-skip 4 --vago-flat-pulse`です。
+LLMの六択は記録したまま、SHORT/LONGを含む全actionを一律4 ticだけ実行します。
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
