@@ -49,8 +49,14 @@ The first V4 batch had 252.2 ms mean decision latency and 105 FIRE ticks, while
 this repaired batch had 265 ms accepted-token p50 and 60 FIRE ticks. The small
 latency shift changes preemption and firing opportunities in this unusually
 phase-sensitive pipeline. Therefore 2.5 is not presented as a reproduction of
-3.5; it is the unpaused arm of the current clock ablation. Reproducing the old
-mean requires another async-only batch to estimate current provider variance.
+3.5; it is the unpaused arm of the current clock ablation.
+
+An additional async-only replica over the same seeds produced 20 kills (mean
+2.0). Combined with the first ten async runs, the current 20-run async sample
+is 45 kills, mean 2.25, sample SD 1.02, range 0-4, at a reported cost of
+$0.01901611. If VAGO's 0.8 average is treated as numerically comparable, this
+is about 2.8x; the input, action space, episode rules, and attribution are not
+aligned, so this is only a rough ratio.
 
 ## Interpretation
 
