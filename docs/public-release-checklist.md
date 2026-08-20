@@ -12,13 +12,14 @@ Snapshot prepared on 2026-08-21. Changing repository visibility is intentionally
 - [x] Native input, commercial games, and anti-cheat integration are explicitly out of scope
 - [x] Documentation and replay indexes distinguish formal numbers from visual-only runs
 - [x] CI workflow uses read-only repository permission and commit-pinned actions
+- [x] CI passes on Ubuntu and Windows with Python 3.12
 
 ## Must decide before public
 
 - [ ] Choose and add a `LICENSE`. No open-source permission is granted without one
 - [ ] Land the stacked draft PRs so the default `main` branch contains V3 and V4
-- [ ] Confirm CI passes on both Ubuntu and Windows after the workflow reaches a PR
 - [ ] Decide replay storage: 88 tracked GIFs use about 228 MiB in the current tree
+- [ ] Enable GitHub dependency/security alerts; Dependabot alerts are currently disabled
 
 ## Replay-storage choices
 
