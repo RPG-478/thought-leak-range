@@ -14,6 +14,10 @@ dependencies = [
   "vizdoom>=1.2.4,<2",
 ]
 
+[project.urls]
+Repository = "https://github.com/RPG-478/thought-leak-range"
+Documentation = "https://github.com/RPG-478/thought-leak-range/tree/main/docs"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8,<10",

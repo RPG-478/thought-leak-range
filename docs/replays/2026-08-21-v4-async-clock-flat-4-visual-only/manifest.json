@@ -1,0 +1,82 @@
+[
+  {
+    "seed": 7,
+    "kills": 6,
+    "health": -8,
+    "seconds": 12.9,
+    "hz": 34.485,
+    "file": "seed-07__kills-06__health-neg08__seconds-12p9__visual-only.gif"
+  },
+  {
+    "seed": 8,
+    "kills": 7,
+    "health": -2,
+    "seconds": 14.7,
+    "hz": 32.001,
+    "file": "seed-08__kills-07__health-neg02__seconds-14p7__visual-only.gif"
+  },
+  {
+    "seed": 9,
+    "kills": 7,
+    "health": -10,
+    "seconds": 18.5,
+    "hz": 29.946,
+    "file": "seed-09__kills-07__health-neg10__seconds-18p5__visual-only.gif"
+  },
+  {
+    "seed": 10,
+    "kills": 17,
+    "health": -12,
+    "seconds": 45.4,
+    "hz": 26.83,
+    "file": "seed-10__kills-17__health-neg12__seconds-45p4__visual-only.gif"
+  },
+  {
+    "seed": 11,
+    "kills": 7,
+    "health": 0,
+    "seconds": 19.3,
+    "hz": 29.926,
+    "file": "seed-11__kills-07__health-00__seconds-19p3__visual-only.gif"
+  },
+  {
+    "seed": 12,
+    "kills": 3,
+    "health": 0,
+    "seconds": 10.5,
+    "hz": 35.014,
+    "file": "seed-12__kills-03__health-00__seconds-10p5__visual-only.gif"
+  },
+  {
+    "seed": 13,
+    "kills": 2,
+    "health": -4,
+    "seconds": 13.0,
+    "hz": 28.189,
+    "file": "seed-13__kills-02__health-neg04__seconds-13p0__visual-only.gif"
+  },
+  {
+    "seed": 14,
+    "kills": 3,
+    "health": -4,
+    "seconds": 12.0,
+    "hz": 29.913,
+    "file": "seed-14__kills-03__health-neg04__seconds-12p0__visual-only.gif"
+  },
+  {
+    "seed": 15,
+    "kills": 5,
+    "health": -1,
+    "seconds": 21.1,
+    "hz": 26.283,
+    "file": "seed-15__kills-05__health-neg01__seconds-21p1__visual-only.gif"
+  },
+  {
+    "seed": 16,
+    "kills": 7,
+    "health": -5,
+    "seconds": 20.2,
+    "hz": 33.236,
+    "file": "seed-16__kills-07__health-neg05__seconds-20p2__visual-only.gif"
+  }
+]

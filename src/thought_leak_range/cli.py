@@ -76,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="preferred provider p50 time-to-first-token in seconds",
     )
     live.add_argument(
+        "--session-id",
+        help="stable OpenRouter cache/sticky-routing session key",
+    )
+    live.add_argument(
         "--direct-bit-keep-reasoning",
         action="store_true",
         help=(
@@ -116,7 +120,7 @@ def _add_range_arguments(
     )
     parser.add_argument("--lanes", type=_bounded_int(1, 16), default=3)
     parser.add_argument(
-        "--max-requests", type=_bounded_int(1, 400), default=default_requests
+        "--max-requests", type=_bounded_int(1, 800), default=default_requests
     )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--visible", action="store_true")
@@ -131,6 +135,8 @@ def _add_range_arguments(
             "direct-shot",
             "direct-bit",
             "four-agent",
+            "direct-motor",
+            "direct-motor-lite",
         ),
         default="marker",
         help=(
@@ -139,7 +145,10 @@ def _add_range_arguments(
             "the LLM only authorizes shooting; direct-shot maps one fresh raw "
             "decision to exactly one FIRE tick; direct-bit does the same from "
             "the first visible 1/0 without a textual nonce; four-agent races "
-            "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard"
+            "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard; "
+            "direct-motor lets one LLM choose a six-way action and pulse length; "
+            "direct-motor-lite uses semantic W/L/R/F, three lanes, and "
+            "preemptible five-tick direction holds"
         ),
     )
     parser.add_argument(
@@ -170,6 +179,67 @@ def _add_range_arguments(
         default=300,
         help="maximum source-observation age for a four-agent FIRE claim",
     )
+    parser.add_argument(
+        "--motor-token-max-age-ms",
+        type=_bounded_int(50, 1000),
+        default=400,
+        help="maximum source-observation age for a V4 direct motor token",
+    )
+    parser.add_argument(
+        "--motor-body",
+        choices=("legacy", "tick-lease", "clock-thread"),
+        default="legacy",
+        help=(
+            "legacy keeps the old arbiter on the current ASYNC_PLAYER runner; "
+            "formal PLAYER baseline B is the 6874fa3 worktree; tick-lease "
+            "enables the experimental ASYNC one-commit-per-game-tick body; "
+            "clock-thread is formal D"
+        ),
+    )
+    parser.add_argument(
+        "--world-clock",
+        choices=("unpaused", "vago-sync", "clock-thread"),
+        default="unpaused",
+        help=(
+            "unpaused keeps stepping at 35 Hz during cloud inference; vago-sync "
+            "freezes direct-motor V4 until its next streamed motor token; "
+            "clock-thread gives formal D a dedicated PLAYER clock thread"
+        ),
+    )
+    parser.add_argument(
+        "--vago-frame-skip",
+        type=_bounded_int(1, 8),
+        default=1,
+        help=(
+            "native tics advanced by each VAGO-sync motor pulse tick; "
+            "4 applies VAGO benchmark-style holding to every V4 pulse tick"
+        ),
+    )
+    parser.add_argument(
+        "--vago-flat-pulse",
+        action="store_true",
+        help=(
+            "execute exactly one frame-skipped chunk per VAGO-sync LLM decision, "
+            "ignoring V4 SHORT/LONG pulse multiplication"
+        ),
+    )
+    parser.add_argument(
+        "--motor-flat-pulse-ticks",
+        type=_bounded_int(1, 8),
+        default=None,
+        help=(
+            "override every direct-motor token to this many native tics on "
+            "the continuous clock-thread body"
+        ),
+    )
+    parser.add_argument(
+        "--clock-capture-frames",
+        action="store_true",
+        help=(
+            "capture observation-only GIF frames on clock-thread; this adds "
+            "screen reads and is not valid for formal timing comparisons"
+        ),
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -177,12 +247,43 @@ def main(argv: list[str] | None = None) -> None:
     _configure_utf8_console()
     parser = build_parser()
     args = parser.parse_args(argv)
+    motor_modes = {"direct-motor", "direct-motor-lite"}
+    if args.world_clock in {"vago-sync", "clock-thread"} and args.tap_mode not in motor_modes:
+        parser.error(
+            f"--world-clock {args.world_clock} currently requires "
+            "--tap-mode direct-motor or direct-motor-lite"
+        )
+    if args.world_clock == "clock-thread" and args.motor_body != "clock-thread":
+        parser.error(
+            "--world-clock clock-thread requires --motor-body clock-thread"
+        )
+    if args.motor_body == "clock-thread" and args.world_clock != "clock-thread":
+        parser.error(
+            "--motor-body clock-thread requires --world-clock clock-thread"
+        )
+    if args.vago_frame_skip != 1 and args.world_clock != "vago-sync":
+        parser.error("--vago-frame-skip other than 1 requires --world-clock vago-sync")
+    if args.vago_flat_pulse and args.world_clock != "vago-sync":
+        parser.error("--vago-flat-pulse requires --world-clock vago-sync")
+    if args.motor_flat_pulse_ticks is not None and args.world_clock != "clock-thread":
+        parser.error("--motor-flat-pulse-ticks requires --world-clock clock-thread")
+    if args.clock_capture_frames and args.world_clock != "clock-thread":
+        parser.error("--clock-capture-frames requires --world-clock clock-thread")
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
         else:
-            if not args.probe_only and args.max_requests < 2:
-                parser.error("live needs at least two requests: probe + one observation")
+            if not args.probe_only:
+                minimum_requests = {
+                    "four-agent": 5,
+                    "direct-motor": 7,
+                    "direct-motor-lite": 5,
+                }.get(args.tap_mode, 2)
+                if args.max_requests < minimum_requests:
+                    parser.error(
+                        f"{args.tap_mode} live needs at least "
+                        f"{minimum_requests} requests for probe + game"
+                    )
             result = asyncio.run(_run_live(args))
     except (ValueError, RuntimeError, BudgetExceeded) as error:
         parser.exit(2, f"thought-leak-range: {error}\n")
@@ -210,13 +311,22 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             show_thoughts=args.show_thoughts,
             tap_mode=args.tap_mode,
             scenario=args.scenario,
+            world_clock=args.world_clock,
+            motor_body=args.motor_body,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
+            motor_token_max_age_ms=args.motor_token_max_age_ms,
+            vago_frame_skip=args.vago_frame_skip,
+            vago_flat_pulse=args.vago_flat_pulse,
+            motor_flat_pulse_ticks=args.motor_flat_pulse_ticks,
+            clock_capture_frames=args.clock_capture_frames,
         )
         result = {
             "mode": "mock",
+            "world_clock": args.world_clock,
+            "motor_body": args.motor_body,
             "artifacts": str(artifacts.directory),
             "range": summary,
         }
@@ -248,6 +358,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
         provider_order=tuple(args.provider),
         provider_allow_fallbacks=args.provider_allow_fallbacks,
         preferred_max_latency_seconds=args.preferred_max_latency,
+        session_id=args.session_id,
     )
     pilot = OpenRouterPilot(
         client,
@@ -269,6 +380,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             failure = {
                 "mode": "live",
                 "status": "probe_failed_closed",
+                "world_clock": args.world_clock,
                 "artifacts": str(artifacts.directory),
                 "warmup_ms": warmup_ms,
                 "probe": _probe_dict(probe),
@@ -293,7 +405,9 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
                 "provider_order": args.provider,
                 "provider_allow_fallbacks": args.provider_allow_fallbacks,
                 "preferred_max_latency_seconds": args.preferred_max_latency,
+                "session_id": args.session_id,
                 "tap_mode": args.tap_mode,
+                "world_clock": args.world_clock,
                 "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
                 "artifacts": str(artifacts.directory),
                 "warmup_ms": warmup_ms,
@@ -317,10 +431,17 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             show_thoughts=args.show_thoughts,
             tap_mode=args.tap_mode,
             scenario=args.scenario,
+            world_clock=args.world_clock,
+            motor_body=args.motor_body,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
+            motor_token_max_age_ms=args.motor_token_max_age_ms,
+            vago_frame_skip=args.vago_frame_skip,
+            vago_flat_pulse=args.vago_flat_pulse,
+            motor_flat_pulse_ticks=args.motor_flat_pulse_ticks,
+            clock_capture_frames=args.clock_capture_frames,
         )
         result = {
             "mode": "live",
@@ -333,12 +454,17 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "provider_order": args.provider,
             "provider_allow_fallbacks": args.provider_allow_fallbacks,
             "preferred_max_latency_seconds": args.preferred_max_latency,
+            "session_id": args.session_id,
             "tap_mode": args.tap_mode,
             "scenario": args.scenario,
+            "seed": args.seed,
+            "world_clock": args.world_clock,
+            "motor_body": args.motor_body,
             "direct_max_age_ms": args.direct_max_age_ms,
             "direct_aim_assist": args.direct_aim_assist,
             "council_movement_ttl_ms": args.council_movement_ttl_ms,
             "council_fire_max_age_ms": args.council_fire_max_age_ms,
+            "motor_token_max_age_ms": args.motor_token_max_age_ms,
             "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
             "artifacts": str(artifacts.directory),
             "warmup_ms": warmup_ms,

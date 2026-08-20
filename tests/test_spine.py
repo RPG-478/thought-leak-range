@@ -5,9 +5,12 @@ from thought_leak_range.runner import (
     _direct_nonce,
     _direct_rule_action,
     _motor_messages,
+    _motor_token_lite_rule,
+    _motor_token_rule,
     _spinal_action,
     _tracking_action,
 )
+from thought_leak_range.motor_token import MotorToken
 
 
 def observation(*, visible: bool, dx: float | None, ammo: int = 10) -> Observation:
@@ -110,3 +113,54 @@ def test_direct_bit_prompt_has_no_nonce_or_output_template() -> None:
     assert run_id not in prompt
     assert _direct_nonce(run_id=run_id, obs=current.seq) not in prompt
     assert "!" not in prompt
+
+
+def test_motor_token_scoring_rule_covers_every_action_and_boundary() -> None:
+    assert _motor_token_rule(observation(visible=False, dx=None)) is MotorToken.RIGHT_LONG
+    assert _motor_token_rule(observation(visible=True, dx=0.0, ammo=0)) is MotorToken.WAIT
+    assert _motor_token_rule(observation(visible=True, dx=-0.221)) is MotorToken.LEFT_LONG
+    assert _motor_token_rule(observation(visible=True, dx=-0.220)) is MotorToken.LEFT_SHORT
+    assert _motor_token_rule(observation(visible=True, dx=-0.080)) is MotorToken.FIRE
+    assert _motor_token_rule(observation(visible=True, dx=0.080)) is MotorToken.FIRE
+    assert _motor_token_rule(observation(visible=True, dx=0.081)) is MotorToken.RIGHT_SHORT
+    assert _motor_token_rule(observation(visible=True, dx=0.221)) is MotorToken.RIGHT_LONG
+
+
+def test_direct_motor_prompt_is_request_bound_data_without_nonce() -> None:
+    current = observation(visible=True, dx=-0.15)
+    run_id = "abc123def456"
+    messages = _motor_messages(
+        observation=current,
+        run_id=run_id,
+        tap_mode="direct-motor",
+    )
+    prompt = "\n".join(message["content"] for message in messages)
+    assert len(messages) == 2
+    assert run_id not in prompt
+    assert "v=1 x=-150 a=10" in messages[1]["content"]
+    assert "0" in messages[0]["content"]
+    assert "5" in messages[0]["content"]
+
+
+def test_motor_lite_rule_has_four_choices_and_preemptible_hold5_turns() -> None:
+    assert _motor_token_lite_rule(observation(visible=False, dx=None)) is MotorToken.RIGHT_HOLD
+    assert _motor_token_lite_rule(observation(visible=True, dx=0.0, ammo=0)) is MotorToken.WAIT
+    assert _motor_token_lite_rule(observation(visible=True, dx=-0.081)) is MotorToken.LEFT_HOLD
+    assert _motor_token_lite_rule(observation(visible=True, dx=-0.080)) is MotorToken.FIRE
+    assert _motor_token_lite_rule(observation(visible=True, dx=0.080)) is MotorToken.FIRE
+    assert _motor_token_lite_rule(observation(visible=True, dx=0.081)) is MotorToken.RIGHT_HOLD
+    assert MotorToken.LEFT_HOLD.pulse_ticks == 5
+    assert MotorToken.RIGHT_HOLD.pulse_ticks == 5
+
+
+def test_motor_lite_prompt_exposes_only_four_valid_digits() -> None:
+    messages = _motor_messages(
+        observation=observation(visible=True, dx=-0.35),
+        run_id="abc123def456",
+        tap_mode="direct-motor-lite",
+    )
+    system = messages[0]["content"]
+    assert "uppercase ASCII letter" in system
+    assert "first matching rule" in system
+    assert "x<-80=>L" in system
+    assert "x>80=>R" in system

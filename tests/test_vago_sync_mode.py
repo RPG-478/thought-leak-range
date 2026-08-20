@@ -1,0 +1,331 @@
+import asyncio
+import json
+
+import pytest
+
+from thought_leak_range.cli import build_parser, main
+from thought_leak_range.motor_token import MotorToken
+from thought_leak_range.runner import (
+    MockReasoningPilot,
+    RunArtifacts,
+    run_practice_range,
+)
+
+
+def test_cli_exposes_vago_sync_world_clock() -> None:
+    args = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "vago-sync",
+        ]
+    )
+    assert args.world_clock == "vago-sync"
+    assert args.vago_frame_skip == 1
+
+
+def test_cli_exposes_vago_benchmark_frame_skip() -> None:
+    args = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "vago-sync",
+            "--vago-frame-skip",
+            "4",
+        ]
+    )
+
+    assert args.vago_frame_skip == 4
+    assert not args.vago_flat_pulse
+
+    flat = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "vago-sync",
+            "--vago-frame-skip",
+            "4",
+            "--vago-flat-pulse",
+        ]
+    )
+    assert flat.vago_flat_pulse
+
+
+def test_cli_defaults_to_the_formal_legacy_motor_baseline() -> None:
+    args = build_parser().parse_args(
+        ["mock", "--tap-mode", "direct-motor"]
+    )
+    assert args.motor_body == "legacy"
+
+    tick_args = build_parser().parse_args(
+        ["mock", "--tap-mode", "direct-motor", "--motor-body", "tick-lease"]
+    )
+    assert tick_args.motor_body == "tick-lease"
+
+    formal_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+        ]
+    )
+    assert formal_d.world_clock == "clock-thread"
+    assert formal_d.motor_body == "clock-thread"
+
+    flat_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+            "--motor-flat-pulse-ticks",
+            "4",
+        ]
+    )
+    assert flat_d.motor_flat_pulse_ticks == 4
+    assert flat_d.clock_capture_frames is False
+
+    lite_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor-lite",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+            "--lanes",
+            "3",
+        ]
+    )
+    assert lite_d.tap_mode == "direct-motor-lite"
+    assert lite_d.lanes == 3
+
+
+def test_cli_rejects_vago_sync_before_running_a_non_v4_mode() -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-bit",
+                "--world-clock",
+                "vago-sync",
+            ]
+        )
+    assert error.value.code == 2
+
+
+def test_cli_requires_the_explicit_formal_d_body() -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-motor",
+                "--world-clock",
+                "clock-thread",
+            ]
+        )
+    assert error.value.code == 2
+
+
+def test_cli_rejects_vago_frame_skip_on_unpaused_world() -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-motor",
+                "--vago-frame-skip",
+                "4",
+            ]
+        )
+    assert error.value.code == 2
+
+    with pytest.raises(SystemExit) as flat_error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-motor",
+                "--vago-flat-pulse",
+            ]
+        )
+    assert flat_error.value.code == 2
+
+
+def test_vago_sync_rejects_non_v4_protocol() -> None:
+    with pytest.raises(ValueError, match="requires direct-motor V4"):
+        asyncio.run(
+            run_practice_range(
+                pilot=None,
+                run_id="abc123def456",
+                artifacts=None,
+                duration_seconds=0.1,
+                observation_interval=0.1,
+                lanes=1,
+                request_limit=1,
+                visible=False,
+                seed=7,
+                show_thoughts=False,
+                tap_mode="direct-bit",
+                scenario="basic",
+                world_clock="vago-sync",
+            )
+        )
+
+
+def test_vago_sync_mock_freezes_during_request_and_runs_serially(tmp_path) -> None:
+    artifacts = RunArtifacts(
+        base_dir=tmp_path,
+        run_id="abc123def456",
+        save_thoughts=False,
+    )
+    try:
+        summary = asyncio.run(
+            run_practice_range(
+                pilot=MockReasoningPilot(tap_mode="direct-motor"),
+                run_id="abc123def456",
+                artifacts=artifacts,
+                duration_seconds=0.1,
+                observation_interval=0.01,
+                lanes=3,
+                request_limit=4,
+                visible=False,
+                seed=7,
+                show_thoughts=False,
+                tap_mode="direct-motor",
+                scenario="defend_the_center",
+                world_clock="vago-sync",
+                motor_token_max_age_ms=400,
+            )
+        )
+    finally:
+        artifacts.close()
+
+    events = [
+        json.loads(line)
+        for line in artifacts.events_path.read_text(encoding="utf-8").splitlines()
+    ]
+    waits = [event for event in events if event["kind"] == "sync_world_wait_finished"]
+
+    assert summary["world_clock"] == "vago-sync"
+    assert summary["duration_basis"] == "simulation_time"
+    assert summary["target_ticks"] == 4
+    assert summary["ticks"] == 4
+    assert summary["configured_lanes"] == 3
+    assert summary["effective_lanes"] == 1
+    # The mock selects the one-tick FIRE token. A four-tick simulation
+    # therefore needs four serial requests; effective_lanes=1 means no
+    # overlap, not one request for the entire episode.
+    assert summary["requests_launched"] == summary["target_ticks"]
+    assert summary["requests_completed"] == summary["target_ticks"]
+    assert summary["motor_token_preemptions"] == 0
+    assert summary["sync_fail_closed_wait_ticks"] == 0
+    assert waits and all(event["game_tick_delta"] == 0 for event in waits)
+
+
+def test_vago_sync_frame_skip_four_advances_four_native_tics_per_fire(tmp_path) -> None:
+    artifacts = RunArtifacts(
+        base_dir=tmp_path,
+        run_id="abc123def456",
+        save_thoughts=False,
+    )
+    try:
+        summary = asyncio.run(
+            run_practice_range(
+                pilot=MockReasoningPilot(tap_mode="direct-motor"),
+                run_id="abc123def456",
+                artifacts=artifacts,
+                duration_seconds=0.1,
+                observation_interval=0.01,
+                lanes=3,
+                request_limit=4,
+                visible=False,
+                seed=7,
+                show_thoughts=False,
+                tap_mode="direct-motor",
+                scenario="defend_the_center",
+                world_clock="vago-sync",
+                motor_token_max_age_ms=400,
+                vago_frame_skip=4,
+            )
+        )
+    finally:
+        artifacts.close()
+
+    assert summary["target_ticks"] == 4
+    assert summary["ticks"] == 4
+    assert summary["requests_launched"] == 1
+    assert summary["vago_frame_skip"] == 4
+
+
+def test_vago_flat_pulse_is_reported_without_changing_default() -> None:
+    args = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "vago-sync",
+            "--vago-flat-pulse",
+        ]
+    )
+
+    assert args.vago_flat_pulse
+
+
+def test_vago_flat_pulse_collapses_long_to_one_chunk_per_decision(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "thought_leak_range.runner._motor_token_rule",
+        lambda _observation: MotorToken.RIGHT_LONG,
+    )
+    artifacts = RunArtifacts(
+        base_dir=tmp_path,
+        run_id="abc123def456",
+        save_thoughts=False,
+    )
+    try:
+        summary = asyncio.run(
+            run_practice_range(
+                pilot=MockReasoningPilot(tap_mode="direct-motor"),
+                run_id="abc123def456",
+                artifacts=artifacts,
+                duration_seconds=0.3,
+                observation_interval=0.01,
+                lanes=3,
+                request_limit=4,
+                visible=False,
+                seed=7,
+                show_thoughts=False,
+                tap_mode="direct-motor",
+                scenario="defend_the_center",
+                world_clock="vago-sync",
+                vago_frame_skip=4,
+                vago_flat_pulse=True,
+            )
+        )
+    finally:
+        artifacts.close()
+
+    assert summary["target_ticks"] == 11
+    assert summary["ticks"] == 11
+    assert summary["requests_launched"] == 3
+    assert summary["motor_token_ticks"] == {"RIGHT_LONG": 3}
+    assert summary["vago_flat_pulse"] is True

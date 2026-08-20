@@ -25,6 +25,7 @@ class Observation:
     kills: int
     hits: int
     damage: int
+    game_tick: int = 0
 
     def prompt_text(self) -> str:
         dx = "unknown" if self.target_dx is None else f"{self.target_dx:+.3f}"
@@ -57,6 +58,7 @@ class PracticeRange:
         seed: int = 7,
         episode_timeout_seconds: float = 30.0,
         scenario: str = "basic",
+        async_player: bool = False,
     ) -> None:
         self.game = vzd.DoomGame()
         config_path, wad_path = _ascii_scenario_paths(scenario)
@@ -65,7 +67,10 @@ class PracticeRange:
         # deliberately has a Japanese name, so both paths must stay ASCII here.
         self.game.set_doom_scenario_path(str(wad_path))
         self.game.set_window_visible(visible)
-        self.game.set_mode(vzd.Mode.PLAYER)
+        self.async_player = async_player
+        self.game.set_mode(
+            vzd.Mode.ASYNC_PLAYER if async_player else vzd.Mode.PLAYER
+        )
         self.game.set_seed(seed)
         # It is a laboratory, not an esports qualifier. Monsters still move on
         # skill 1, but the cloud brain gets time to wake up before being eaten.
@@ -97,6 +102,8 @@ class PracticeRange:
         }
         self.total_reward = 0.0
         self.ticks = 0
+        self._episode_time_origin = int(self.game.get_episode_time())
+        self._target_lock_id: int | None = None
 
     def close(self) -> None:
         try:
@@ -116,12 +123,14 @@ class PracticeRange:
 
     def observe(self, *, seq: int) -> Observation:
         state = self.game.get_state()
+        game_tick = self._refresh_game_tick()
         health = int(self.game.get_game_variable(vzd.GameVariable.HEALTH))
         ammo = int(self.game.get_game_variable(vzd.GameVariable.AMMO2))
         kills = int(self.game.get_game_variable(vzd.GameVariable.KILLCOUNT))
         hits = int(self.game.get_game_variable(vzd.GameVariable.HITCOUNT))
         damage = int(self.game.get_game_variable(vzd.GameVariable.DAMAGECOUNT))
         if state is None:
+            self._target_lock_id = None
             return Observation(
                 seq=seq,
                 captured_at=time.monotonic(),
@@ -135,6 +144,7 @@ class PracticeRange:
                 kills=kills,
                 hits=hits,
                 damage=damage,
+                game_tick=game_tick,
             )
 
         frame = state.screen_buffer
@@ -142,9 +152,13 @@ class PracticeRange:
         candidates = [
             label
             for label in state.labels
-            if _is_probable_monster(str(label.object_name))
+            if _is_probable_monster(
+                str(label.object_name),
+                getattr(label, "object_category", None),
+            )
         ]
         if not candidates:
+            self._target_lock_id = None
             return Observation(
                 seq=seq,
                 captured_at=time.monotonic(),
@@ -158,9 +172,14 @@ class PracticeRange:
                 kills=kills,
                 hits=hits,
                 damage=damage,
+                game_tick=game_tick,
             )
 
-        target = max(candidates, key=lambda label: label.width * label.height)
+        target, self._target_lock_id = _select_locked_target(
+            candidates,
+            locked_target_id=self._target_lock_id,
+        )
+        assert target is not None
         center_x = float(target.x) + float(target.width) / 2.0
         dx = (center_x - width / 2.0) / (width / 2.0)
         return Observation(
@@ -176,13 +195,18 @@ class PracticeRange:
             kills=kills,
             hits=hits,
             damage=damage,
+            game_tick=game_tick,
         )
 
     def frame(self):
         state = self.game.get_state()
         return None if state is None else state.screen_buffer.copy()
 
-    def step(self, action: Action) -> float:
+    def step(self, action: Action, *, ticks: int = 1) -> float:
+        if ticks < 1:
+            raise ValueError("step ticks must be positive")
+        if self.async_player and ticks != 1:
+            raise ValueError("ASYNC_PLAYER step ticks must remain one")
         vector = [False] * len(self._buttons)
         button = None
         if action is Action.LEFT:
@@ -201,15 +225,37 @@ class PracticeRange:
             button = vzd.Button.ATTACK
         if button is not None and button in self._button_index:
             vector[self._button_index[button]] = True
-        reward = float(self.game.make_action(vector, 1))
+        if self.async_player:
+            # ASYNC_PLAYER keeps the native game clock moving while Python is
+            # waiting on the Cloud request.  set_action changes the held body
+            # command; advance_action refreshes the latest native state and
+            # catches up all tics elapsed since the previous refresh.
+            self.game.set_action(vector)
+            before_total = float(self.game.get_total_reward())
+            self.game.advance_action()
+            after_total = float(self.game.get_total_reward())
+            self.total_reward = after_total
+            self._refresh_game_tick()
+            return after_total - before_total
+
+        reward = float(self.game.make_action(vector, ticks))
         self.total_reward += reward
-        self.ticks += 1
+        self._refresh_game_tick()
         return reward
+
+    def _refresh_game_tick(self) -> int:
+        current = max(
+            0,
+            int(self.game.get_episode_time()) - self._episode_time_origin,
+        )
+        self.ticks = max(self.ticks, current)
+        return self.ticks
 
 
 _MONSTER_TERMS = (
     "zombie",
     "shotgunguy",
+    "marinechainsawvzd",
     "chaingunguy",
     "imp",
     "demon",
@@ -228,9 +274,50 @@ _MONSTER_TERMS = (
 )
 
 
-def _is_probable_monster(name: str) -> bool:
+def _is_probable_monster(name: str, category: object | None = None) -> bool:
+    category_folded = str(category or "").casefold().replace("_", "")
+    if category_folded.endswith("monster"):
+        return True
     folded = name.casefold().replace("_", "")
     return any(term in folded for term in _MONSTER_TERMS)
+
+
+def _select_locked_target(
+    candidates: list[object],
+    *,
+    locked_target_id: int | None,
+) -> tuple[object | None, int | None]:
+    """Choose one near-looking enemy without swapping targets every frame.
+
+    Projected label area is the only distance proxy available on the normal
+    observation path. Keep the current identity for as long as it remains
+    visible; choose a new nearest-looking enemy only after it disappears.
+    This stabilizes perception; it does not choose LEFT/RIGHT/FIRE for the model.
+    """
+
+    if not candidates:
+        return None, None
+
+    challenger = max(
+        candidates,
+        key=lambda label: float(getattr(label, "width"))
+        * float(getattr(label, "height")),
+    )
+    if locked_target_id is None:
+        return challenger, int(getattr(challenger, "object_id"))
+
+    locked = next(
+        (
+            label
+            for label in candidates
+            if int(getattr(label, "object_id")) == locked_target_id
+        ),
+        None,
+    )
+    if locked is None:
+        return challenger, int(getattr(challenger, "object_id"))
+
+    return locked, locked_target_id
 
 
 def _ascii_scenario_paths(scenario: str) -> tuple[Path, Path]:
