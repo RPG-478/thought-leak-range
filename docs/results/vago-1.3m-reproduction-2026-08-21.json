@@ -1,0 +1,35 @@
+{
+  "upstream_repository": "https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec",
+  "upstream_commit": "b4c3fdfd47cff530f69e8808eae4cc5545671772",
+  "command": "python scripts/benchmark.py --agent multivec --model models/doom-multivec-trained --scenario defend_the_center --episodes 10 --frame-skip 4 --realtime",
+  "environment_note": "The scenario cfg and WAD were copied unchanged to an ASCII-only temporary path to avoid a ViZDoom Windows UnicodeDecodeError caused by the Japanese workspace path.",
+  "MultiVec-1.3M": {
+    "episodes": 10,
+    "avg_survival_steps": 351.7,
+    "max_survival_steps": 525,
+    "avg_kills": 15.6,
+    "total_kills": 156,
+    "avg_health_remaining": 7.4,
+    "avg_latency_ms": 216.2171420532673,
+    "p95_latency_ms": 279.2878199834375,
+    "action_diversity_entropy": 1.5623446636440987,
+    "action_distribution": {
+      "move_forward+turn_left": 1440,
+      "move_forward+turn_right": 1249,
+      "turn_left+move_forward": 294,
+      "turn_right+move_forward": 144,
+      "turn_left+shoot+move_forward": 70,
+      "move_forward+shoot+turn_right": 65,
+      "move_forward+shoot": 54,
+      "turn_left+shoot": 49,
+      "move_forward+shoot+turn_left": 41,
+      "turn_right+shoot+move_forward": 29,
+      "move_forward": 28,
+      "turn_right+shoot": 25,
+      "shoot": 11,
+      "shoot+move_forward": 8,
+      "turn_left": 7,
+      "turn_right": 3
+    }
+  }
+}

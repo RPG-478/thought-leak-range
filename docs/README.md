@@ -8,6 +8,7 @@ through the resulting paper trail.
 - [V4 direct motor](v4-direct-motor.md) — the one-character Cloud LLM motor protocol
 - [Prior art and fairness boundary](prior-art.md) — what this rebuts and what it does not
 - [V4 Async × flat-4](experiment-v4-async-flat-4.md) — current unpaused result: 4.0 kill average
+- [V4 Async versus VAGO MultiVec 1.3M](experiment-v4-async-vs-vago-1.3m.md) — local reproduction: 15.6 versus 4.0 kills, with clock caveats
 - [V4-S × VAGO flat-4](experiment-v4-s-vago-flat-4.md) — stopped-world diagnostic: 26.3 kill average
 - [Replay archive](replays/README.md) — GIFs grouped by experiment and validity
 

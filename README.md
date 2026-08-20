@@ -12,6 +12,7 @@ V4 `direct-motor`ではLlama 3.1 8Bが毎回`0`〜`5`のmotor tokenを一つ返�
 ## まず見る場所
 
 - [現在の非同期結果](docs/experiment-v4-async-flat-4.md): 全tokenを4 ticに揃えて平均4.0 kill
+- [VAGO 1.3M実機比較](docs/experiment-v4-async-vs-vago-1.3m.md): こちらでも平均15.6 kill、ただし公開runnerは推論中にworld停止
 - [停止世界の診断結果](docs/experiment-v4-s-vago-flat-4.md): 同じ頭と身体で平均26.3 kill
 - [設計と公平性の境界](docs/prior-art.md): VAGOへの反例になる部分／ならない部分
 - [全ドキュメント](docs/README.md)・[全リプレイ](docs/replays/README.md)

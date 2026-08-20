@@ -17,9 +17,9 @@ Snapshot prepared on 2026-08-21. Changing repository visibility is intentionally
 ## Must decide before public
 
 - [x] Add the MIT `LICENSE`
-- [ ] Land the stacked draft PRs so the default `main` branch contains V3 and V4
+- [x] Land the V3 and V4 pull requests so the default `main` branch contains both
 - [x] Move 88 replay GIFs to experiment-specific GitHub Release assets
-- [ ] Enable GitHub dependency/security alerts; Dependabot alerts are currently disabled
+- [x] Enable GitHub Dependabot vulnerability alerts
 
 ## Replay-storage decision
 
