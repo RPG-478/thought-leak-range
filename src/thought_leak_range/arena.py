@@ -57,6 +57,7 @@ class PracticeRange:
         seed: int = 7,
         episode_timeout_seconds: float = 30.0,
         scenario: str = "basic",
+        async_player: bool = False,
     ) -> None:
         self.game = vzd.DoomGame()
         config_path, wad_path = _ascii_scenario_paths(scenario)
@@ -65,7 +66,10 @@ class PracticeRange:
         # deliberately has a Japanese name, so both paths must stay ASCII here.
         self.game.set_doom_scenario_path(str(wad_path))
         self.game.set_window_visible(visible)
-        self.game.set_mode(vzd.Mode.PLAYER)
+        self.async_player = async_player
+        self.game.set_mode(
+            vzd.Mode.ASYNC_PLAYER if async_player else vzd.Mode.PLAYER
+        )
         self.game.set_seed(seed)
         # It is a laboratory, not an esports qualifier. Monsters still move on
         # skill 1, but the cloud brain gets time to wake up before being eaten.
@@ -97,6 +101,7 @@ class PracticeRange:
         }
         self.total_reward = 0.0
         self.ticks = 0
+        self._episode_time_origin = int(self.game.get_episode_time())
 
     def close(self) -> None:
         try:
@@ -201,6 +206,22 @@ class PracticeRange:
             button = vzd.Button.ATTACK
         if button is not None and button in self._button_index:
             vector[self._button_index[button]] = True
+        if self.async_player:
+            # ASYNC_PLAYER keeps the native game clock moving while Python is
+            # waiting on the Cloud request.  set_action changes the held body
+            # command; advance_action refreshes the latest native state and
+            # catches up all tics elapsed since the previous refresh.
+            self.game.set_action(vector)
+            before_total = float(self.game.get_total_reward())
+            self.game.advance_action()
+            after_total = float(self.game.get_total_reward())
+            self.total_reward = after_total
+            self.ticks = max(
+                self.ticks,
+                int(self.game.get_episode_time()) - self._episode_time_origin,
+            )
+            return after_total - before_total
+
         reward = float(self.game.make_action(vector, 1))
         self.total_reward += reward
         self.ticks += 1
