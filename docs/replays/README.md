@@ -11,6 +11,6 @@ inspectable without relying on color alone.
 | [V4 async side lease and V4-S control](2026-08-21-v4-side-lease/README.md) | 36 | Paired stale-direction experiment |
 | [Marine recognition repair baseline](2026-08-21-v4-s-marine-fixed-before-overshoot/README.md) | 18 | Enemy-label correction before overshoot changes |
 
-The tracked GIF archive is intentionally large. Before the repository becomes public, decide whether
-to keep this evidence in Git history or migrate it to GitHub Release assets. Do not silently delete the
-failed episodes: they explain why later control bodies exist.
+The 88 GIFs live in experiment-specific GitHub Releases instead of normal Git history. Each experiment
+README embeds the corresponding release assets directly, so failed episodes remain individually
+inspectable without turning every clone into a 228 MiB replay download.

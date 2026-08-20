@@ -1,5 +1,7 @@
 # Thought Leak Range
 
+MIT licensed. Replay GIFs live in experiment-specific GitHub Releases so normal clones stay small.
+
 > **VizDoomをCloud LLMにやらせた。ゲームを止めず、一文字で探索・旋回・発砲まで全部選ばせる。**
 
 Cloud LLMの判断を、35 Hzで動き続けるoffline ViZDoomへ非同期で接続する実験です。
@@ -51,11 +53,11 @@ V4の主な達成は勝敗よりも「誤判断を含む全操作をCloud LLM自
 以下はV4 seed 12の全編replayです。字幕の`MOTORLEFT / MOTORRIGHT / MOTORFIRE`が
 Cloud LLMの一文字から実行された操作で、このrunは5 hit / 5 KILLCOUNTでした。
 
-![V4一文字運動野がViZDoomを全操作して5体倒すreplay](docs/assets/v4-direct-motor-seed12-5-kills.gif)
+![V4一文字運動野がViZDoomを全操作して5体倒すreplay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-direct-motor-seed12-5-kills.gif)
 
 V2の5発5 hit replayも比較用に残しています。
 
-![local追尾を持つV2がViZDoomで5体倒すreplay](docs/assets/episode-5-kills.gif)
+![local追尾を持つV2がViZDoomで5体倒すreplay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/episode-5-kills.gif)
 
 出発点だった「streamed raw reasoningを盗み見し、final answerもtool callも待たずに
 身体へ漏電させる」modeも残っています。`fire-gate`はLLMのraw thinkingを短命な
@@ -362,7 +364,7 @@ Formal Dのseed 7〜9は`2 / 1 / 2 kill`。方向保持、preempt、1 tick FIRE�
 | WAIT tick | 106 | **3** |
 | pulse preemption | 38 | **0** |
 
-![V4-S停止世界で6体倒したreplay](docs/assets/v4-vago-sync-seed12-6-kills.gif)
+![V4-S停止世界で6体倒したreplay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-vago-sync-seed12-6-kills.gif)
 
 停止版は64回FIREを選んだのに、弾薬は7発しか減りませんでした。Cloudを待つ200 msは
 銃のcooldownを1 tickも進めないため、思考時間だけ無料で身体時間は無料にならないからです。

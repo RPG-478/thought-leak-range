@@ -89,7 +89,7 @@ seed 12はKILLCOUNTとHITCOUNTがともに5で、今回のV4最高成績と直�
 字幕の`MOTORLEFT / MOTORRIGHT / MOTORFIRE`は、local追尾ではなくCloud LLMが返した
 一文字tokenから実行されたactionである。
 
-![V4一文字運動野のseed 12、5 hit・5 kill全編replay](assets/v4-direct-motor-seed12-5-kills.gif)
+![V4一文字運動野のseed 12、5 hit・5 kill全編replay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-direct-motor-seed12-5-kills.gif)
 
 ## 集計
 

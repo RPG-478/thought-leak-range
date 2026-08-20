@@ -35,56 +35,56 @@ VAGOの公開結果は60秒＝2100 native ticをframe skip 4で実行し、最�
 
 ### seed 07〜12
 
-![S seed 07](v4-s-control/seed-07__kills-11__hits-11__health-82__ticks-525__complete.gif)
-![S seed 08](v4-s-control/seed-08__kills-12__hits-12__health-90__ticks-525__complete.gif)
-![S seed 09](v4-s-control/seed-09__kills-11__hits-11__health-46__ticks-525__complete.gif)
-![S seed 10](v4-s-control/seed-10__kills-10__hits-10__health-80__ticks-525__complete.gif)
-![S seed 11](v4-s-control/seed-11__kills-12__hits-12__health-74__ticks-525__complete.gif)
-![S seed 12](v4-s-control/seed-12__kills-12__hits-12__health-100__ticks-525__complete.gif)
+![S seed 07](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-07__kills-11__hits-11__health-82__ticks-525__complete.gif)
+![S seed 08](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-08__kills-12__hits-12__health-90__ticks-525__complete.gif)
+![S seed 09](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-09__kills-11__hits-11__health-46__ticks-525__complete.gif)
+![S seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-10__kills-10__hits-10__health-80__ticks-525__complete.gif)
+![S seed 11](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-11__kills-12__hits-12__health-74__ticks-525__complete.gif)
+![S seed 12](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-12__kills-12__hits-12__health-100__ticks-525__complete.gif)
 
 ### seed 13〜18
 
-![S seed 13](v4-s-control/seed-13__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 14](v4-s-control/seed-14__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 15](v4-s-control/seed-15__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 16](v4-s-control/seed-16__kills-12__hits-12__health-100__ticks-525__complete.gif)
-![S seed 17](v4-s-control/seed-17__kills-13__hits-13__health-76__ticks-525__complete.gif)
-![S seed 18](v4-s-control/seed-18__kills-05__hits-05__health-14__ticks-464__request_limit.gif)
+![S seed 13](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-13__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 14](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-14__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 15](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-15__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 16](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-16__kills-12__hits-12__health-100__ticks-525__complete.gif)
+![S seed 17](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-17__kills-13__hits-13__health-76__ticks-525__complete.gif)
+![S seed 18](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-18__kills-05__hits-05__health-14__ticks-464__request_limit.gif)
 
 ### seed 19〜24
 
-![S seed 19](v4-s-control/seed-19__kills-11__hits-11__health-46__ticks-525__complete.gif)
-![S seed 20](v4-s-control/seed-20__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 21](v4-s-control/seed-21__kills-14__hits-14__health-84__ticks-525__complete.gif)
-![S seed 22](v4-s-control/seed-22__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 23](v4-s-control/seed-23__kills-13__hits-13__health-84__ticks-525__complete.gif)
-![S seed 24](v4-s-control/seed-24__kills-10__hits-10__health-24__ticks-525__complete.gif)
+![S seed 19](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-19__kills-11__hits-11__health-46__ticks-525__complete.gif)
+![S seed 20](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-20__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 21](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-21__kills-14__hits-14__health-84__ticks-525__complete.gif)
+![S seed 22](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-22__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 23](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-23__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![S seed 24](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-24__kills-10__hits-10__health-24__ticks-525__complete.gif)
 
 ## 非同期side lease — 18 GIF
 
 ### seed 07〜12
 
-![async seed 07](v4-async-side-lease/seed-07__kills-05__hits-05__health-00__ticks-414__rejects-21__dead.gif)
-![async seed 08](v4-async-side-lease/seed-08__kills-03__hits-03__health-neg02__ticks-374__rejects-22__dead.gif)
-![async seed 09](v4-async-side-lease/seed-09__kills-05__hits-05__health-neg04__ticks-407__rejects-49__dead.gif)
-![async seed 10](v4-async-side-lease/seed-10__kills-08__hits-08__health-04__ticks-537__rejects-54__survived_15s.gif)
-![async seed 11](v4-async-side-lease/seed-11__kills-08__hits-08__health-10__ticks-537__rejects-62__survived_15s.gif)
-![async seed 12](v4-async-side-lease/seed-12__kills-07__hits-07__health-26__ticks-535__rejects-49__survived_15s.gif)
+![async seed 07](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-07__kills-05__hits-05__health-00__ticks-414__rejects-21__dead.gif)
+![async seed 08](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-08__kills-03__hits-03__health-neg02__ticks-374__rejects-22__dead.gif)
+![async seed 09](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-09__kills-05__hits-05__health-neg04__ticks-407__rejects-49__dead.gif)
+![async seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-10__kills-08__hits-08__health-04__ticks-537__rejects-54__survived_15s.gif)
+![async seed 11](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-11__kills-08__hits-08__health-10__ticks-537__rejects-62__survived_15s.gif)
+![async seed 12](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-12__kills-07__hits-07__health-26__ticks-535__rejects-49__survived_15s.gif)
 
 ### seed 13〜18
 
-![async seed 13](v4-async-side-lease/seed-13__kills-08__hits-08__health-72__ticks-537__rejects-51__survived_15s.gif)
-![async seed 14](v4-async-side-lease/seed-14__kills-07__hits-07__health-44__ticks-531__rejects-58__survived_15s.gif)
-![async seed 15](v4-async-side-lease/seed-15__kills-04__hits-04__health-neg04__ticks-398__rejects-20__dead.gif)
-![async seed 16](v4-async-side-lease/seed-16__kills-03__hits-03__health-neg12__ticks-418__rejects-34__dead.gif)
-![async seed 17](v4-async-side-lease/seed-17__kills-08__hits-08__health-32__ticks-537__rejects-54__survived_15s.gif)
-![async seed 18](v4-async-side-lease/seed-18__kills-04__hits-04__health-neg04__ticks-298__rejects-30__dead.gif)
+![async seed 13](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-13__kills-08__hits-08__health-72__ticks-537__rejects-51__survived_15s.gif)
+![async seed 14](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-14__kills-07__hits-07__health-44__ticks-531__rejects-58__survived_15s.gif)
+![async seed 15](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-15__kills-04__hits-04__health-neg04__ticks-398__rejects-20__dead.gif)
+![async seed 16](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-16__kills-03__hits-03__health-neg12__ticks-418__rejects-34__dead.gif)
+![async seed 17](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-17__kills-08__hits-08__health-32__ticks-537__rejects-54__survived_15s.gif)
+![async seed 18](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-18__kills-04__hits-04__health-neg04__ticks-298__rejects-30__dead.gif)
 
 ### seed 19〜24
 
-![async seed 19](v4-async-side-lease/seed-19__kills-06__hits-06__health-neg08__ticks-512__rejects-40__dead.gif)
-![async seed 20](v4-async-side-lease/seed-20__kills-04__hits-04__health-neg04__ticks-397__rejects-29__dead.gif)
-![async seed 21](v4-async-side-lease/seed-21__kills-06__hits-06__health-38__ticks-538__rejects-47__survived_15s.gif)
-![async seed 22](v4-async-side-lease/seed-22__kills-04__hits-04__health-neg11__ticks-401__rejects-28__dead.gif)
-![async seed 23](v4-async-side-lease/seed-23__kills-02__hits-02__health-neg04__ticks-344__rejects-21__dead.gif)
-![async seed 24](v4-async-side-lease/seed-24__kills-08__hits-08__health-36__ticks-537__rejects-55__survived_15s.gif)
+![async seed 19](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-19__kills-06__hits-06__health-neg08__ticks-512__rejects-40__dead.gif)
+![async seed 20](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-20__kills-04__hits-04__health-neg04__ticks-397__rejects-29__dead.gif)
+![async seed 21](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-21__kills-06__hits-06__health-38__ticks-538__rejects-47__survived_15s.gif)
+![async seed 22](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-22__kills-04__hits-04__health-neg11__ticks-401__rejects-28__dead.gif)
+![async seed 23](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-23__kills-02__hits-02__health-neg04__ticks-344__rejects-21__dead.gif)
+![async seed 24](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-side-lease-2026-08-21/seed-24__kills-08__hits-08__health-36__ticks-537__rejects-55__survived_15s.gif)

@@ -16,18 +16,15 @@ Snapshot prepared on 2026-08-21. Changing repository visibility is intentionally
 
 ## Must decide before public
 
-- [ ] Choose and add a `LICENSE`. No open-source permission is granted without one
+- [x] Add the MIT `LICENSE`
 - [ ] Land the stacked draft PRs so the default `main` branch contains V3 and V4
-- [ ] Decide replay storage: 88 tracked GIFs use about 228 MiB in the current tree
+- [x] Move 88 replay GIFs to experiment-specific GitHub Release assets
 - [ ] Enable GitHub dependency/security alerts; Dependabot alerts are currently disabled
 
-## Replay-storage choices
+## Replay-storage decision
 
-1. **Keep Git history as-is.** Simplest and preserves every episode inline, but clones are heavy.
-2. **Move GIFs to GitHub Release assets.** Keeps the code repository light, but requires rewriting links
-   and deciding whether to rewrite existing private history before publication.
-3. **Use Git LFS.** Keeps normal Git objects smaller going forward, but public contributors need LFS and
-   existing history remains large unless rewritten.
+Replay GIFs are migrated to GitHub Release assets. Documentation keeps direct per-episode image links,
+while the private Git history is rewritten before publication to remove the old 228 MiB blob archive.
 
-History rewriting and public visibility both affect every future clone, so neither is performed by the
-cleanup commit.
+The pre-rewrite repository bundle and SHA-256 GIF manifest remain offline under the workspace artifact
+directory; they are not published with the repository.

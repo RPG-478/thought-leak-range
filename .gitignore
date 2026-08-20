@@ -6,6 +6,7 @@ __pycache__/
 .env.*
 !.env.example
 runs/
+docs/**/*.gif
 _vizdoom.ini
 .coverage
 dist/

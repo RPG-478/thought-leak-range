@@ -3,7 +3,7 @@
 これはV4一文字運動野の実Cloud runで、敵が増えたあと左右旋回を繰り返し、
 0 killのまま倒された失敗例である。
 
-![V4 Cloud LLMが複数敵の間で照準を往復して倒されるreplay](assets/v4-cloud-multi-target-thrash-seed12-0-kills.gif)
+![V4 Cloud LLMが複数敵の間で照準を往復して倒されるreplay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-cloud-multi-target-thrash-seed12-0-kills.gif)
 
 ## Run
 
