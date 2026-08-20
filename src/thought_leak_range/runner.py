@@ -794,6 +794,7 @@ async def run_practice_range(
         tap_mode=tap_mode,
         scenario=scenario,
         world_clock=world_clock,
+        clock_backend="vizdoom-async-player",
         direct_max_age_ms=direct_max_age_ms if direct_mode else None,
         direct_aim_assist=direct_aim_assist if direct_mode else None,
         council_movement_ttl_ms=(
@@ -812,6 +813,7 @@ async def run_practice_range(
         seed=seed,
         episode_timeout_seconds=duration_seconds + 1.0,
         scenario=scenario,
+        async_player=True,
     ) as arena:
         started = time.monotonic()
         initial_combat = arena.observe(seq=0)
@@ -1118,7 +1120,13 @@ async def run_practice_range(
                         total=arena.total_reward,
                     )
 
-                next_tick_at += 1.0 / 35.0
+                if arena.async_player:
+                    # The native ASYNC_PLAYER clock already caught up during
+                    # the step above. Do not replay every missed scheduler
+                    # slot in a burst after a long Cloud wait.
+                    next_tick_at = time.monotonic() + 1.0 / 35.0
+                else:
+                    next_tick_at += 1.0 / 35.0
                 await asyncio.sleep(max(0.0, next_tick_at - time.monotonic()))
         finally:
             # Capture active wall time before cancelling streams and encoding the
@@ -1158,6 +1166,7 @@ async def run_practice_range(
         "scenario": scenario,
         "seed": seed,
         "world_clock": world_clock,
+        "clock_backend": "vizdoom-async-player",
         "duration_ms": round(game_loop_duration_ms, 3),
         "simulation_duration_ms": round(ticks / 35.0 * 1000.0, 3),
         "ticks": ticks,
@@ -1258,6 +1267,7 @@ async def _run_vago_sync_motor_range(
         tap_mode="direct-motor",
         scenario=scenario,
         world_clock="vago-sync",
+        clock_backend="vizdoom-player",
         motor_token_max_age_ms=motor_token_max_age_ms,
     )
 
@@ -1266,6 +1276,7 @@ async def _run_vago_sync_motor_range(
         seed=seed,
         episode_timeout_seconds=duration_seconds + 1.0,
         scenario=scenario,
+        async_player=False,
     ) as arena:
         started = time.monotonic()
         initial_combat = arena.observe(seq=0)
@@ -1465,6 +1476,7 @@ async def _run_vago_sync_motor_range(
         "scenario": scenario,
         "seed": seed,
         "world_clock": "vago-sync",
+        "clock_backend": "vizdoom-player",
         "duration_basis": "simulation_time",
         "requested_simulation_duration_ms": duration_seconds * 1000.0,
         "duration_ms": round(game_loop_duration_ms, 3),
