@@ -309,6 +309,25 @@ uv run python -m thought_leak_range live `
 1.3M専用modelとの直接対決ではありません。全条件とraw artifactは
 [V4-S実験記録](docs/experiment-v4-vago-sync.md)へ。
 
+#### 時計修正版の10 paired run
+
+前の通常版はPythonのevent loopから`Mode.PLAYER`を手動tickしていたため、長いnative/provider
+stallで「動く世界」そのものが止まる可能性があった。現在の通常版はViZDoom `ASYNC_PLAYER`へ
+切り替え、停止版だけが`PLAYER`を使う条件でseed 7〜16を再取得した。
+
+| 指標 | 通常 `ASYNC_PLAYER` | 停止 `PLAYER` |
+|---|---:|---:|
+| 10 run kill | 25 | **64** |
+| 平均 kill | 2.5 | **6.4** |
+| paired勝利 | 0 | **10 / 10** |
+| 平均kill差（停止−通常） | — | **+3.9** |
+| preemption | 642 | **0** |
+| API error | 0 | 0 |
+| 総費用 | — | **$0.02512097** |
+
+これはLLMの理解力比較ではなく、同じV4へ異なるworld clockを接続したablationである。
+全指標と限界は[時計修正版10回比較](docs/experiment-v4-clock-async-10x.md)へ残した。
+
 ```powershell
 uv run python -m thought_leak_range live `
   --env-file C:\path\outside\repo\.env `
