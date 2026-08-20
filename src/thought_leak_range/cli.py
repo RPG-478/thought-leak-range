@@ -215,6 +215,14 @@ def _add_range_arguments(
             "4 applies VAGO benchmark-style holding to every V4 pulse tick"
         ),
     )
+    parser.add_argument(
+        "--vago-flat-pulse",
+        action="store_true",
+        help=(
+            "execute exactly one frame-skipped chunk per VAGO-sync LLM decision, "
+            "ignoring V4 SHORT/LONG pulse multiplication"
+        ),
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -238,6 +246,8 @@ def main(argv: list[str] | None = None) -> None:
         )
     if args.vago_frame_skip != 1 and args.world_clock != "vago-sync":
         parser.error("--vago-frame-skip other than 1 requires --world-clock vago-sync")
+    if args.vago_flat_pulse and args.world_clock != "vago-sync":
+        parser.error("--vago-flat-pulse requires --world-clock vago-sync")
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
@@ -288,6 +298,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             council_fire_max_age_ms=args.council_fire_max_age_ms,
             motor_token_max_age_ms=args.motor_token_max_age_ms,
             vago_frame_skip=args.vago_frame_skip,
+            vago_flat_pulse=args.vago_flat_pulse,
         )
         result = {
             "mode": "mock",
@@ -405,6 +416,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             council_fire_max_age_ms=args.council_fire_max_age_ms,
             motor_token_max_age_ms=args.motor_token_max_age_ms,
             vago_frame_skip=args.vago_frame_skip,
+            vago_flat_pulse=args.vago_flat_pulse,
         )
         result = {
             "mode": "live",
