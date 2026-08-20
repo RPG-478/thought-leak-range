@@ -114,9 +114,9 @@ def _add_range_arguments(
     parser.add_argument(
         "--observation-interval", type=_positive_float, default=0.30
     )
-    parser.add_argument("--lanes", type=_bounded_int(1, 3), default=3)
+    parser.add_argument("--lanes", type=_bounded_int(1, 16), default=3)
     parser.add_argument(
-        "--max-requests", type=_bounded_int(1, 100), default=default_requests
+        "--max-requests", type=_bounded_int(1, 400), default=default_requests
     )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--visible", action="store_true")
@@ -130,6 +130,7 @@ def _add_range_arguments(
             "fire-gate",
             "direct-shot",
             "direct-bit",
+            "four-agent",
         ),
         default="marker",
         help=(
@@ -137,7 +138,8 @@ def _add_range_arguments(
             "offline-only V0 sniffer; fire-gate lets the local spine track while "
             "the LLM only authorizes shooting; direct-shot maps one fresh raw "
             "decision to exactly one FIRE tick; direct-bit does the same from "
-            "the first visible 1/0 without a textual nonce"
+            "the first visible 1/0 without a textual nonce; four-agent races "
+            "independent WAIT/LEFT/RIGHT/FIRE specialists over a shared blackboard"
         ),
     )
     parser.add_argument(
@@ -155,6 +157,18 @@ def _add_range_arguments(
         "--direct-aim-assist",
         action="store_true",
         help="let the handwritten body track, but never decide when to fire",
+    )
+    parser.add_argument(
+        "--council-movement-ttl-ms",
+        type=_bounded_int(100, 2000),
+        default=600,
+        help="maximum lifetime of a four-agent WAIT/LEFT/RIGHT selection",
+    )
+    parser.add_argument(
+        "--council-fire-max-age-ms",
+        type=_bounded_int(50, 1000),
+        default=300,
+        help="maximum source-observation age for a four-agent FIRE claim",
     )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
@@ -198,6 +212,8 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             scenario=args.scenario,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
+            council_movement_ttl_ms=args.council_movement_ttl_ms,
+            council_fire_max_age_ms=args.council_fire_max_age_ms,
         )
         result = {
             "mode": "mock",
@@ -303,6 +319,8 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             scenario=args.scenario,
             direct_max_age_ms=args.direct_max_age_ms,
             direct_aim_assist=args.direct_aim_assist,
+            council_movement_ttl_ms=args.council_movement_ttl_ms,
+            council_fire_max_age_ms=args.council_fire_max_age_ms,
         )
         result = {
             "mode": "live",
@@ -319,6 +337,8 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "scenario": args.scenario,
             "direct_max_age_ms": args.direct_max_age_ms,
             "direct_aim_assist": args.direct_aim_assist,
+            "council_movement_ttl_ms": args.council_movement_ttl_ms,
+            "council_fire_max_age_ms": args.council_fire_max_age_ms,
             "direct_bit_keep_reasoning": args.direct_bit_keep_reasoning,
             "artifacts": str(artifacts.directory),
             "warmup_ms": warmup_ms,
@@ -350,6 +370,7 @@ def _probe_dict(probe) -> dict[str, object]:
         "reported_model": probe.stream.reported_model,
         "provider": probe.stream.provider,
         "usage": probe.stream.usage,
+        "specialist_results": probe.specialist_results,
     }
 
 

@@ -43,6 +43,7 @@ ViZDoom labels ── OBS#25 ──> Llama 3.1 8B / Groq ──> "1"
 - 一発ごとのFIRE / WAITだけはcloud LLMが決め、local側は誤判断を都合よく取消さない
 - 推論中もworldは35 Hzで進み、古い判断はlatest-observation / 300 ms guardで捨てる
 - raw thought版と一文字classifier版の結果を混ぜない
+- `four-agent`ではlocal左右追尾も外し、4本のCloud streamだけが全操作を選ぶ
 - commercial game、native input、anti-cheatへ接続しない
 
 ## セットアップ
@@ -89,7 +90,7 @@ OpenRouterのproviderは`data_collection=deny`を保ったまま、FPS実験な�
 最初のtokenを優先する`sort=latency`を指定します。特定providerを比較する時は
 `--provider Groq --no-provider-fallback`のようにfallbackも止めます。
 
-## 三つの思考タップ
+## 操作モード
 
 | mode | 拾うもの | 扱い |
 |---|---|---|
@@ -98,6 +99,7 @@ OpenRouterのproviderは`data_collection=deny`を保ったまま、FPS実験な�
 | `fire-gate` | `So trigger is ARMED/SAFE.` | LLMは引き金だけ。探索・追従は35 Hzのlocal spine |
 | `direct-shot` | raw reasoningのrequest-bound bit | 一判断を一回のFIRE tickへ直結、nonceあり |
 | `direct-bit` | visible出力の最初の厳密な`1 / 0` | nonceなし。一文字のstreaming classifier baseline |
+| `four-agent` | 4専門streamの最初の厳密な`1 / 0` | V3。WAIT / LEFT / RIGHT / FIREが一つの身体を共有 |
 
 DeepSeek V4 Flashは最初の実測で、action markerをraw reasoningではなくvisible回答へ
 書きました。そのため安全な`marker` modeは正しく停止しました。
@@ -180,6 +182,46 @@ uv run python -m thought_leak_range live `
 
 詳しくは[一発ずつ撃つ実験記録](docs/experiment.md#direct-bit版)へ。
 
+### V3: 四人制運動野
+
+`WAIT / LEFT / RIGHT / FIRE`ごとに独立したCloud LLM requestを同時起動し、各Agentは
+`1=自分の出番 / 0=違う`だけを返す。前ラウンドの4票と実行動作は圧縮黒板として
+次ラウンド全員へ渡す。優先度は`FIRE >>> WAIT = LEFT = RIGHT`で、local側は敵位置から
+動作を選ばない。
+
+8 laneで二世代を重ねた15秒challengeでは、4 Agentだけで探索・左右旋回・発砲し、
+3体を倒した。
+
+- 522 tick（約14.9秒）、終了時health 0
+- 172 game request、166完了、provider 429が2件
+- 166票中156票が意味的に正解（94.0%）
+- 選択latency 最速234 ms / 中央値265 ms / 平均273.1 ms
+- 4 FIRE tick、ammo `52 → 49`、3 hit、35 damage、3 kill
+- OpenRouter報告実費はstartup probe込み`$0.00085615`
+
+```powershell
+uv run python -m thought_leak_range live `
+  --env-file C:\path\outside\repo\.env `
+  --model meta-llama/llama-3.1-8b-instruct `
+  --provider Groq --no-provider-fallback `
+  --tap-mode four-agent --lanes 8 `
+  --scenario defend_the_center --duration 15 `
+  --observation-interval 0.30 `
+  --council-movement-ttl-ms 600 `
+  --council-fire-max-age-ms 400 `
+  --max-tokens 16 --max-requests 380 `
+  --max-usd 0.03 --save-thoughts
+```
+
+設計は[四人制運動野](docs/v3-four-agent-blackboard.md)、全runと失敗は
+[V3実験記録](docs/experiment-v3.md)へ。黒板を補助判断に使わせた途端にFIREとLEFTが
+全員黙ったため、baselineでは黒板を注入・記録しつつ判断には使わせない。この失敗も
+[黒板干渉記録](docs/v3-blackboard-interference.md)へ残した。
+
+V2 / V3をpaired seedで各10回実行すると、平均killは`5.4 vs 1.5`でV2が10 / 10勝利した。
+V3は全操作Cloud化を達成した一方、WAIT tickが60.2%、古い世代の棄却が464票に達した。
+詳細は[各10回比較](docs/experiment-v2-v3-10x.md)へ。
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
@@ -193,8 +235,8 @@ Thought Leak Rangeは世界初を主張しません。現在の差は、**world�
 
 ## Roadmap
 
-- `direct-bit`を4操作へ拡張し、LLM自身へ`LEFT / RIGHT / FIRE / WAIT`を任せる
-- one-shot actionとfreshness guardを保ったまま、local左右追尾を段階的に外す
+- V3の黒板を「注入するだけ」から、精度を壊さず協調へ使える表現へ育てる
+- 4 Agentを別model / 別providerへ散らし、一社内queueと429を避ける
 - labels版とraw pixels / ASCII / depth版を同じunpaused条件で比較する
 - synchronousにworldを止めるbaselineと、35 Hz asynchronous版を同じmodelで比較する
 - 複数cloud requestを時間差で走らせ、最新観測だけが身体を取れる三交代制を試す
@@ -214,6 +256,7 @@ API keyはどのfileにも保存しません。HTTP errorへkeyが混ざった�
 
 - markerの文法は `[[ACT run=... obs=... ttl=... action=...]]` のみ
 - `direct-bit`はresponseごとにparserを分離し、最初の非空白`1 / 0`以外はfail closed
+- `four-agent`もresponseごとに観測番号と担当動作を固定し、古い世代は実行しない
 - actionは`WAIT / LEFT / RIGHT / FIRE`のallow-list
 - nonce、観測番号、TTL、重複、最大request数、費用見積りを検査
 - `ARMED`だけでは撃たず、最新tickで敵が中央・弾薬ありの時だけlocal spineが発砲

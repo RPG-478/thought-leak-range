@@ -17,6 +17,12 @@ from PIL import Image, ImageDraw
 import vizdoom as vzd
 
 from .arena import Observation, PracticeRange
+from .council import (
+    LAUNCH_ORDER,
+    SPECIALISTS,
+    MotorCouncilArbiter,
+    SpecialistBitParser,
+)
 from .openrouter import BudgetExceeded, OpenRouterReasoningClient, StreamResult
 from .protocol import (
     Action,
@@ -47,6 +53,13 @@ class RunMetrics:
     direct_shots_executed: int = 0
     direct_hits: int = 0
     direct_damage: int = 0
+    council_votes: int = 0
+    council_claims: int = 0
+    council_correct_votes: int = 0
+    council_incorrect_votes: int = 0
+    council_conflicts: int = 0
+    council_selected: Counter[str] = field(default_factory=Counter)
+    council_shots_executed: int = 0
     budget_guard_stopped: bool = False
 
 
@@ -58,6 +71,7 @@ class ProbeOutcome:
     semantically_correct: bool
     marker_latency_ms: float | None
     stream: StreamResult
+    specialist_results: dict[str, object] | None = None
 
 
 class RunArtifacts:
@@ -151,9 +165,32 @@ class MockReasoningPilot:
         run_id: str,
         on_reasoning,
         on_visible,
+        specialist: Action | None = None,
+        blackboard: str = "",
     ) -> StreamResult:
         started = time.monotonic()
         action = _rule_action(observation)
+        if self.tap_mode == "four-agent":
+            if specialist is None:
+                raise ValueError("four-agent requests require a specialist")
+            bit = "1" if _council_rule_action(observation) is specialist else "0"
+            await asyncio.sleep(0.025)
+            arrived = time.monotonic()
+            on_visible(bit, arrived)
+            finished = time.monotonic()
+            return StreamResult(
+                response_id=f"mock-{observation.seq}-{specialist.value.lower()}",
+                reported_model="mock/four-agent-bit-stream",
+                provider="local",
+                reasoning_types=(),
+                raw_reasoning_chars=0,
+                visible_chars=1,
+                first_byte_ms=(arrived - started) * 1000.0,
+                first_reasoning_ms=None,
+                first_visible_ms=(arrived - started) * 1000.0,
+                total_ms=(finished - started) * 1000.0,
+                usage={},
+            )
         if self.tap_mode in {"direct-shot", "direct-bit"}:
             nonce = _direct_nonce(run_id=run_id, obs=observation.seq)
             bit = "1" if _direct_rule_action(observation) is Action.FIRE else "0"
@@ -256,12 +293,16 @@ class OpenRouterPilot:
         run_id: str,
         on_reasoning,
         on_visible,
+        specialist: Action | None = None,
+        blackboard: str = "",
     ) -> StreamResult:
         return await self.client.stream(
             messages=_motor_messages(
                 observation=observation,
                 run_id=run_id,
                 tap_mode=self.tap_mode,
+                specialist=specialist,
+                blackboard=blackboard,
             ),
             on_reasoning=on_reasoning,
             on_visible=on_visible,
@@ -272,10 +313,13 @@ class OpenRouterPilot:
             # ignore whitespace, while an API newline stop would erase the bit.
             stop=None,
             temperature=(
-                0.0 if self.tap_mode in {"direct-shot", "direct-bit"} else None
+                0.0
+                if self.tap_mode in {"direct-shot", "direct-bit", "four-agent"}
+                else None
             ),
             reasoning_enabled=(
-                self.tap_mode != "direct-bit" or self.direct_bit_reasoning
+                self.tap_mode not in {"direct-bit", "four-agent"}
+                or self.direct_bit_reasoning
             ),
         )
 
@@ -317,6 +361,15 @@ async def probe_raw_reasoning(
         hits=0,
         damage=0,
     )
+    if tap_mode == "four-agent":
+        return await _probe_four_agent(
+            pilot=pilot,
+            run_id=run_id,
+            artifacts=artifacts,
+            show_thoughts=show_thoughts,
+            observation=observation,
+            probe_case=probe_case,
+        )
     parser = _make_parser(run_id=run_id, obs=0, tap_mode=tap_mode)
     frames = []
 
@@ -375,6 +428,111 @@ async def probe_raw_reasoning(
     )
 
 
+async def _probe_four_agent(
+    *,
+    pilot,
+    run_id: str,
+    artifacts: RunArtifacts,
+    show_thoughts: bool,
+    observation: Observation,
+    probe_case: str,
+) -> ProbeOutcome:
+    expected = _council_rule_action(observation)
+    votes: dict[Action, object] = {}
+    streams: dict[Action, StreamResult] = {}
+    blackboard = "o=-1 p=0000 e=W"
+
+    async def run_one(specialist: Action) -> None:
+        parser = SpecialistBitParser(
+            expected_run_id=run_id,
+            expected_obs=observation.seq,
+            specialist=specialist,
+        )
+
+        def on_reasoning(text: str, arrived_at: float) -> None:
+            artifacts.thought(
+                obs=0,
+                text=text,
+                source=f"probe.{specialist.value}.reasoning.text",
+            )
+
+        def on_visible(text: str, arrived_at: float) -> None:
+            artifacts.thought(
+                obs=0,
+                text=text,
+                source=f"probe.{specialist.value}.visible",
+            )
+            parsed = parser.feed(text, now=arrived_at)
+            if parsed:
+                votes[specialist] = parsed[0]
+            if show_thoughts:
+                print(f"[probe {specialist.value}] {text}", flush=True)
+
+        streams[specialist] = await pilot.think(
+            observation=observation,
+            run_id=run_id,
+            on_reasoning=on_reasoning,
+            on_visible=on_visible,
+            specialist=specialist,
+            blackboard=blackboard,
+        )
+
+    artifacts.event(
+        "probe_started",
+        model=getattr(pilot, "client", None) and pilot.client.model,
+        tap_mode="four-agent",
+        specialists=[action.value for action in SPECIALISTS],
+    )
+    await asyncio.gather(*(run_one(specialist) for specialist in LAUNCH_ORDER))
+    specialist_results: dict[str, object] = {}
+    semantically_correct = len(votes) == len(SPECIALISTS)
+    for specialist in SPECIALISTS:
+        vote = votes.get(specialist)
+        claimed = getattr(vote, "claimed", None)
+        correct = claimed is (specialist is expected)
+        semantically_correct = semantically_correct and correct
+        stream = streams[specialist]
+        specialist_results[specialist.value] = {
+            "claimed": claimed,
+            "correct": correct,
+            "latency_ms": (
+                (vote.received_at - observation.captured_at) * 1000.0
+                if vote is not None
+                else None
+            ),
+            **_stream_log(stream),
+        }
+    expected_vote = votes.get(expected)
+    expected_stream = streams[expected]
+    latency = (
+        (expected_vote.received_at - observation.captured_at) * 1000.0
+        if expected_vote is not None
+        else None
+    )
+    passed = semantically_correct and all(
+        stream.visible_chars > 0 for stream in streams.values()
+    )
+    artifacts.event(
+        "probe_finished",
+        passed=passed,
+        marker_action=expected.value if getattr(expected_vote, "claimed", False) else None,
+        expected_action=expected.value,
+        semantically_correct=semantically_correct,
+        probe_case=probe_case,
+        marker_latency_ms=latency,
+        specialist_results=specialist_results,
+    )
+    return ProbeOutcome(
+        passed=passed,
+        marker_action=expected.value if getattr(expected_vote, "claimed", False) else None,
+        expected_action=expected.value,
+        semantically_correct=semantically_correct,
+        marker_latency_ms=latency,
+        stream=expected_stream,
+        specialist_results=specialist_results,
+    )
+
+
 async def run_practice_range(
     *,
     pilot,
@@ -391,21 +549,33 @@ async def run_practice_range(
     scenario: str,
     direct_max_age_ms: int = 300,
     direct_aim_assist: bool = False,
+    council_movement_ttl_ms: int = 600,
+    council_fire_max_age_ms: int = 300,
 ) -> dict[str, object]:
     if duration_seconds <= 0 or observation_interval <= 0:
         raise ValueError("duration and observation interval must be positive")
-    if not 1 <= lanes <= 3:
-        raise ValueError("lanes must be between one and three")
+    if not 1 <= lanes <= 16:
+        raise ValueError("lanes must be between one and sixteen")
     if request_limit < 0:
         raise ValueError("request limit cannot be negative")
 
     metrics = RunMetrics()
     direct_mode = tap_mode in {"direct-shot", "direct-bit"}
-    arbiter = (
-        DirectShotArbiter(run_id=run_id, maximum_age_ms=direct_max_age_ms)
-        if direct_mode
-        else LeaseArbiter(run_id=run_id)
-    )
+    council_mode = tap_mode == "four-agent"
+    if council_mode and lanes < len(SPECIALISTS):
+        raise ValueError("four-agent mode needs at least four concurrent lanes")
+    if council_mode:
+        arbiter = MotorCouncilArbiter(
+            run_id=run_id,
+            movement_ttl_ms=council_movement_ttl_ms,
+            fire_max_age_ms=council_fire_max_age_ms,
+        )
+    elif direct_mode:
+        arbiter = DirectShotArbiter(
+            run_id=run_id, maximum_age_ms=direct_max_age_ms
+        )
+    else:
+        arbiter = LeaseArbiter(run_id=run_id)
     recorder = ReplayRecorder()
     tasks: dict[asyncio.Task[StreamResult], int] = {}
     observations: dict[int, Observation] = {}
@@ -429,6 +599,12 @@ async def run_practice_range(
         scenario=scenario,
         direct_max_age_ms=direct_max_age_ms if direct_mode else None,
         direct_aim_assist=direct_aim_assist if direct_mode else None,
+        council_movement_ttl_ms=(
+            council_movement_ttl_ms if council_mode else None
+        ),
+        council_fire_max_age_ms=(
+            council_fire_max_age_ms if council_mode else None
+        ),
     )
 
     with PracticeRange(
@@ -456,7 +632,8 @@ async def run_practice_range(
 
                 live_state = (
                     arena.observe(seq=latest_obs)
-                    if tap_mode in {"fire-gate", "direct-shot", "direct-bit"}
+                    if tap_mode
+                    in {"fire-gate", "direct-shot", "direct-bit", "four-agent"}
                     else None
                 )
                 target_edge = False
@@ -504,7 +681,13 @@ async def run_practice_range(
                         # One local visibility edge can wake the cloud brain. Do
                         # not spend every request saying SAFE to an empty room.
                         next_observation_at = now + observation_interval
-                    elif len(tasks) < lanes:
+                    elif (
+                        len(tasks) + (len(SPECIALISTS) if council_mode else 1)
+                        <= lanes
+                        and launched
+                        + (len(SPECIALISTS) if council_mode else 1)
+                        <= request_limit
+                    ):
                         latest_obs += 1
                         observation = arena.observe(seq=latest_obs)
                         last_observation = observation
@@ -518,21 +701,51 @@ async def run_practice_range(
                                     obs=cancelled.obs,
                                     reason="newer_observation_captured",
                                 )
-                        artifacts.event("observation", **asdict(observation))
-                        task = asyncio.create_task(
-                            _run_thought_request(
-                                pilot=pilot,
-                                observation=observation,
-                                run_id=run_id,
-                                arbiter=arbiter,
-                                artifacts=artifacts,
-                                metrics=metrics,
-                                show_thoughts=show_thoughts,
-                                tap_mode=tap_mode,
+                        blackboard = ""
+                        if council_mode:
+                            assert isinstance(arbiter, MotorCouncilArbiter)
+                            blackboard = arbiter.blackboard()
+                            arbiter.note_observation(
+                                latest_obs, captured_at=observation.captured_at
                             )
-                        )
-                        tasks[task] = latest_obs
-                        launched += 1
+                            artifacts.event(
+                                "council_blackboard",
+                                obs=latest_obs,
+                                previous=blackboard,
+                            )
+                        artifacts.event("observation", **asdict(observation))
+                        if council_mode:
+                            for specialist in LAUNCH_ORDER:
+                                task = asyncio.create_task(
+                                    _run_council_request(
+                                        pilot=pilot,
+                                        observation=observation,
+                                        run_id=run_id,
+                                        specialist=specialist,
+                                        blackboard=blackboard,
+                                        arbiter=arbiter,
+                                        artifacts=artifacts,
+                                        metrics=metrics,
+                                        show_thoughts=show_thoughts,
+                                    )
+                                )
+                                tasks[task] = latest_obs
+                                launched += 1
+                        else:
+                            task = asyncio.create_task(
+                                _run_thought_request(
+                                    pilot=pilot,
+                                    observation=observation,
+                                    run_id=run_id,
+                                    arbiter=arbiter,
+                                    artifacts=artifacts,
+                                    metrics=metrics,
+                                    show_thoughts=show_thoughts,
+                                    tap_mode=tap_mode,
+                                )
+                            )
+                            tasks[task] = latest_obs
+                            launched += 1
                     else:
                         metrics.coalesced_observations += 1
                         artifacts.event("observation_coalesced", reason="all_lanes_busy")
@@ -540,7 +753,10 @@ async def run_practice_range(
                     # take hundreds of ms on their first call.
                     next_observation_at = time.monotonic() + observation_interval
 
-                if direct_mode:
+                if council_mode:
+                    assert isinstance(arbiter, MotorCouncilArbiter)
+                    action = arbiter.take_action(now=now)
+                elif direct_mode:
                     assert isinstance(arbiter, DirectShotArbiter)
                     if executed_direct_frame is not None and live_state is not None:
                         action = Action.FIRE if live_state.ammo > 0 else Action.WAIT
@@ -586,6 +802,8 @@ async def run_practice_range(
                 )
                 step_started_at = time.monotonic()
                 reward = arena.step(action)
+                if council_mode and action is Action.FIRE:
+                    metrics.council_shots_executed += 1
                 if executed_direct_frame is not None:
                     before = live_state
                     after = arena.observe(seq=latest_obs)
@@ -678,6 +896,13 @@ async def run_practice_range(
         "direct_shots_executed": metrics.direct_shots_executed,
         "direct_hits": metrics.direct_hits,
         "direct_damage": metrics.direct_damage,
+        "council_votes": metrics.council_votes,
+        "council_claims": metrics.council_claims,
+        "council_correct_votes": metrics.council_correct_votes,
+        "council_incorrect_votes": metrics.council_incorrect_votes,
+        "council_conflicts": metrics.council_conflicts,
+        "council_selected": dict(metrics.council_selected),
+        "council_shots_executed": metrics.council_shots_executed,
         "budget_guard_stopped": metrics.budget_guard_stopped,
         "total_reward": total_reward,
         "final_observation": asdict(final_observation) if final_observation else None,
@@ -793,6 +1018,111 @@ async def _run_thought_request(
     return result
 
 
+async def _run_council_request(
+    *,
+    pilot,
+    observation: Observation,
+    run_id: str,
+    specialist: Action,
+    blackboard: str,
+    arbiter: MotorCouncilArbiter,
+    artifacts: RunArtifacts,
+    metrics: RunMetrics,
+    show_thoughts: bool,
+) -> StreamResult:
+    parser = SpecialistBitParser(
+        expected_run_id=run_id,
+        expected_obs=observation.seq,
+        specialist=specialist,
+    )
+    expected_action = _council_rule_action(observation)
+
+    def on_reasoning(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source=f"{specialist.value}.reasoning.text",
+        )
+
+    def on_visible(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source=f"{specialist.value}.visible",
+        )
+        if show_thoughts:
+            print(
+                f"[obs {observation.seq:02d} {specialist.value}] {text}",
+                end="",
+                flush=True,
+            )
+        for vote in parser.feed(text, now=arrived_at):
+            decision = arbiter.offer(vote, now=arrived_at)
+            latency = (arrived_at - observation.captured_at) * 1000.0
+            correct = vote.claimed is (specialist is expected_action)
+            metrics.council_votes += 1
+            if vote.claimed:
+                metrics.council_claims += 1
+            if correct:
+                metrics.council_correct_votes += 1
+            else:
+                metrics.council_incorrect_votes += 1
+            if decision.reason in {"conflicting_claim", "fire_preempted"}:
+                metrics.council_conflicts += 1
+            if decision.reason in {"selected", "fire_preempted"}:
+                metrics.accepted_markers += 1
+                metrics.marker_latency_ms.append(latency)
+                metrics.council_selected[specialist.value] += 1
+                print(
+                    f"\n[COUNCIL] obs={vote.obs} {specialist.value} "
+                    f"won latency={latency:.1f}ms reason={decision.reason}",
+                    flush=True,
+                )
+            elif not decision.accepted:
+                metrics.rejected_markers[decision.reason] += 1
+            artifacts.event(
+                "council_vote",
+                obs=vote.obs,
+                specialist=specialist.value,
+                claimed=vote.claimed,
+                expected_specialist=expected_action.value,
+                semantically_correct=correct,
+                latency_ms=latency,
+                accepted=decision.accepted,
+                reason=decision.reason,
+                selected_action=(
+                    decision.selected_action.value
+                    if decision.selected_action is not None
+                    else None
+                ),
+                blackboard=blackboard,
+            )
+
+    artifacts.event(
+        "request_started",
+        obs=observation.seq,
+        specialist=specialist.value,
+        blackboard=blackboard,
+    )
+    result = await pilot.think(
+        observation=observation,
+        run_id=run_id,
+        on_reasoning=on_reasoning,
+        on_visible=on_visible,
+        specialist=specialist,
+        blackboard=blackboard,
+    )
+    if show_thoughts:
+        print()
+    artifacts.event(
+        "request_finished",
+        obs=observation.seq,
+        specialist=specialist.value,
+        **_stream_log(result),
+    )
+    return result
+
+
 def _harvest_finished(
     *,
     tasks: dict[asyncio.Task[StreamResult], int],
@@ -852,7 +1182,40 @@ def _motor_messages(
     observation: Observation,
     run_id: str,
     tap_mode: str,
+    specialist: Action | None = None,
+    blackboard: str = "",
 ) -> list[dict[str, str]]:
+    if tap_mode == "four-agent":
+        if specialist is None:
+            raise ValueError("four-agent messages require a specialist")
+        specialist_instructions = {
+            Action.WAIT: (
+                "Reply 1 only when v=1 and a<=0; otherwise reply 0."
+            ),
+            Action.LEFT: (
+                "Reply 1 only when v=1, a>0, and x<-80; otherwise reply 0."
+            ),
+            Action.RIGHT: (
+                "If v=0 reply 1. If v=1, reply 1 only when a>0 and x>80. "
+                "In every other case reply 0."
+            ),
+            Action.FIRE: (
+                "Reply 1 only when v=1, a>0, and -80<=x<=80; otherwise reply 0."
+            ),
+        }
+        system = (
+            "Reply with exactly one ASCII digit and nothing else. "
+            f"{specialist_instructions[specialist]} Ignore p,e,o. /no_think"
+        )
+        user = (
+            f"v={int(observation.target_visible)} x={_direct_bit_x(observation)} "
+            f"a={observation.ammo} {blackboard}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
     if tap_mode == "direct-shot":
         nonce = _direct_nonce(run_id=run_id, obs=observation.seq)
         system = (
@@ -962,6 +1325,18 @@ def _direct_rule_action(
     ):
         return Action.FIRE
     return Action.WAIT
+
+
+def _council_rule_action(observation: Observation) -> Action:
+    if not observation.target_visible or observation.target_dx is None:
+        return Action.RIGHT
+    if observation.ammo <= 0:
+        return Action.WAIT
+    if _direct_bit_x(observation) < -80:
+        return Action.LEFT
+    if _direct_bit_x(observation) > 80:
+        return Action.RIGHT
+    return Action.FIRE
 
 
 def _direct_bit_x(observation: Observation) -> int:
