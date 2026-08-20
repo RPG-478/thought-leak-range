@@ -789,6 +789,7 @@ async def run_practice_range(
     council_movement_ttl_ms: int = 600,
     council_fire_max_age_ms: int = 300,
     motor_token_max_age_ms: int = 400,
+    vago_frame_skip: int = 1,
 ) -> dict[str, object]:
     if duration_seconds <= 0 or observation_interval <= 0:
         raise ValueError("duration and observation interval must be positive")
@@ -800,6 +801,10 @@ async def run_practice_range(
         raise ValueError("world clock must be unpaused, vago-sync, or clock-thread")
     if motor_body not in {"legacy", "tick-lease", "clock-thread"}:
         raise ValueError("motor body must be legacy, tick-lease, or clock-thread")
+    if not 1 <= vago_frame_skip <= 8:
+        raise ValueError("VAGO frame skip must be between one and eight")
+    if world_clock != "vago-sync" and vago_frame_skip != 1:
+        raise ValueError("VAGO frame skip requires the vago-sync world clock")
     if world_clock == "clock-thread":
         if tap_mode not in {"direct-motor", "direct-motor-lite"}:
             raise ValueError("clock-thread currently requires a direct-motor mode")
@@ -839,6 +844,7 @@ async def run_practice_range(
             motor_token_max_age_ms=motor_token_max_age_ms,
             motor_body=motor_body,
             tap_mode=tap_mode,
+            frame_skip=vago_frame_skip,
         )
 
     metrics = RunMetrics()
@@ -1769,6 +1775,7 @@ async def _run_vago_sync_motor_range(
     motor_token_max_age_ms: int,
     motor_body: str,
     tap_mode: str,
+    frame_skip: int,
 ) -> dict[str, object]:
     """Run V4 behind VAGO's blocking synchronous world clock.
 
@@ -1812,6 +1819,7 @@ async def _run_vago_sync_motor_range(
         clock_backend="vizdoom-player",
         motor_token_max_age_ms=motor_token_max_age_ms,
         motor_body=motor_body,
+        frame_skip=frame_skip,
     )
 
     with PracticeRange(
@@ -1847,7 +1855,8 @@ async def _run_vago_sync_motor_range(
             )
             execute_game_tick = arena.ticks
             step_started_at = time.monotonic()
-            reward = arena.step(action)
+            native_ticks = min(frame_skip, target_ticks - arena.ticks)
+            reward = arena.step(action, ticks=native_ticks)
 
             if motor_tick is not None:
                 token = motor_tick.frame.token
@@ -2073,6 +2082,7 @@ async def _run_vago_sync_motor_range(
         "duration_ms": round(game_loop_duration_ms, 3),
         "simulation_duration_ms": round(ticks / 35.0 * 1000.0, 3),
         "target_ticks": target_ticks,
+        "vago_frame_skip": frame_skip,
         "ticks": ticks,
         "stop_reason": stop_reason,
         "episode_finished": episode_finished,

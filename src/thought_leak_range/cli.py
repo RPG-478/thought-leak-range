@@ -120,7 +120,7 @@ def _add_range_arguments(
     )
     parser.add_argument("--lanes", type=_bounded_int(1, 16), default=3)
     parser.add_argument(
-        "--max-requests", type=_bounded_int(1, 400), default=default_requests
+        "--max-requests", type=_bounded_int(1, 800), default=default_requests
     )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--visible", action="store_true")
@@ -206,6 +206,15 @@ def _add_range_arguments(
             "clock-thread gives formal D a dedicated PLAYER clock thread"
         ),
     )
+    parser.add_argument(
+        "--vago-frame-skip",
+        type=_bounded_int(1, 8),
+        default=1,
+        help=(
+            "native tics advanced by each VAGO-sync motor pulse tick; "
+            "4 applies VAGO benchmark-style holding to every V4 pulse tick"
+        ),
+    )
     parser.add_argument("--artifact-dir", type=Path, default=PROJECT_DIR / "runs")
 
 
@@ -227,6 +236,8 @@ def main(argv: list[str] | None = None) -> None:
         parser.error(
             "--motor-body clock-thread requires --world-clock clock-thread"
         )
+    if args.vago_frame_skip != 1 and args.world_clock != "vago-sync":
+        parser.error("--vago-frame-skip other than 1 requires --world-clock vago-sync")
     try:
         if args.command == "mock":
             result = asyncio.run(_run_mock(args))
@@ -276,6 +287,7 @@ async def _run_mock(args: argparse.Namespace) -> dict[str, object]:
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
             motor_token_max_age_ms=args.motor_token_max_age_ms,
+            vago_frame_skip=args.vago_frame_skip,
         )
         result = {
             "mode": "mock",
@@ -392,6 +404,7 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             council_movement_ttl_ms=args.council_movement_ttl_ms,
             council_fire_max_age_ms=args.council_fire_max_age_ms,
             motor_token_max_age_ms=args.motor_token_max_age_ms,
+            vago_frame_skip=args.vago_frame_skip,
         )
         result = {
             "mode": "live",

@@ -378,6 +378,10 @@ uv run python -m thought_leak_range live `
   --max-tokens 16 --max-requests 200 --max-usd 0.025
 ```
 
+VAGO benchmark同様に各pulse tickを4 native tic保持する破壊的ablationは、
+`--vago-frame-skip 4`で明示的に有効化します。V4のLONGは20 ticになるため、通常実験の
+既定値は1のままです。
+
 ## 先行例との差
 
 cloud LLMをViZDoomへ接続した先行例はあります。2026年の
