@@ -8,7 +8,7 @@ import secrets
 import sys
 import time
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TextIO
@@ -17,6 +17,12 @@ from PIL import Image, ImageDraw
 import vizdoom as vzd
 
 from .arena import Observation, PracticeRange
+from .clock_thread import (
+    ClockDecision,
+    DecisionMailbox,
+    LatestObservationMailbox,
+    PlayerClockThread,
+)
 from .council import (
     LAUNCH_ORDER,
     SPECIALISTS,
@@ -69,12 +75,29 @@ class RunMetrics:
     motor_token_decisions: int = 0
     motor_token_correct: int = 0
     motor_token_incorrect: int = 0
+    motor_token_queued_decisions: int = 0
+    motor_token_queued_fire_decisions: int = 0
+    motor_token_committed_decisions: int = 0
+    motor_token_superseded_before_commit: int = 0
     motor_token_selected: Counter[str] = field(default_factory=Counter)
     motor_token_ticks: Counter[str] = field(default_factory=Counter)
+    motor_token_loop_calls: int = 0
+    motor_token_game_ticks: set[int] = field(default_factory=set)
     motor_token_preemptions: int = 0
+    motor_token_direction_rejections: Counter[str] = field(default_factory=Counter)
+    motor_token_fire_decisions: int = 0
     motor_token_fire_ticks: int = 0
+    motor_token_fire_loop_calls: int = 0
+    motor_token_fire_game_ticks: set[int] = field(default_factory=set)
+    motor_token_ammo_decrements: int = 0
     motor_token_hits: int = 0
     motor_token_damage: int = 0
+    motor_token_native_expiry_violations: int = 0
+    motor_token_native_expiry_overrun_ticks: int = 0
+    motor_token_native_expiry_max_overrun_ticks: int = 0
+    observed_ammo_decrements: int = 0
+    observed_ammo_increases: int = 0
+    last_observed_ammo: int | None = None
     budget_guard_stopped: bool = False
 
 
@@ -87,6 +110,19 @@ class ProbeOutcome:
     marker_latency_ms: float | None
     stream: StreamResult
     specialist_results: dict[str, object] | None = None
+
+
+def _track_observed_ammo(metrics: RunMetrics, observation: Observation) -> Observation:
+    """Track ammo changes across every observation, including held-action shots."""
+
+    previous = metrics.last_observed_ammo
+    if previous is not None:
+        if observation.ammo < previous:
+            metrics.observed_ammo_decrements += previous - observation.ammo
+        elif observation.ammo > previous:
+            metrics.observed_ammo_increases += observation.ammo - previous
+    metrics.last_observed_ammo = observation.ammo
+    return observation
 
 
 class RunArtifacts:
@@ -185,15 +221,19 @@ class MockReasoningPilot:
     ) -> StreamResult:
         started = time.monotonic()
         action = _rule_action(observation)
-        if self.tap_mode == "direct-motor":
-            token = _motor_token_rule(observation)
+        if self.tap_mode in {"direct-motor", "direct-motor-lite"}:
+            token = (
+                _motor_token_lite_rule(observation)
+                if self.tap_mode == "direct-motor-lite"
+                else _motor_token_rule(observation)
+            )
             await asyncio.sleep(0.025)
             arrived = time.monotonic()
-            on_visible(token.value, arrived)
+            on_visible(_motor_wire_value(token, tap_mode=self.tap_mode), arrived)
             finished = time.monotonic()
             return StreamResult(
                 response_id=f"mock-{observation.seq}-{token.name.lower()}",
-                reported_model="mock/direct-motor-token",
+                reported_model=f"mock/{self.tap_mode}-token",
                 provider="local",
                 reasoning_types=(),
                 raw_reasoning_chars=0,
@@ -349,11 +389,23 @@ class OpenRouterPilot:
             temperature=(
                 0.0
                 if self.tap_mode
-                in {"direct-shot", "direct-bit", "four-agent", "direct-motor"}
+                in {
+                    "direct-shot",
+                    "direct-bit",
+                    "four-agent",
+                    "direct-motor",
+                    "direct-motor-lite",
+                }
                 else None
             ),
             reasoning_enabled=(
-                self.tap_mode not in {"direct-bit", "four-agent", "direct-motor"}
+                self.tap_mode
+                not in {
+                    "direct-bit",
+                    "four-agent",
+                    "direct-motor",
+                    "direct-motor-lite",
+                }
                 or self.direct_bit_reasoning
             ),
         )
@@ -368,12 +420,13 @@ async def probe_raw_reasoning(
     tap_mode: str,
     probe_case: str = "fire",
 ) -> ProbeOutcome:
-    if tap_mode == "direct-motor":
+    if tap_mode in {"direct-motor", "direct-motor-lite"}:
         return await _probe_direct_motor_suite(
             pilot=pilot,
             run_id=run_id,
             artifacts=artifacts,
             show_thoughts=show_thoughts,
+            tap_mode=tap_mode,
         )
     cases = {
         "fire": (True, 0.0, 10),
@@ -581,16 +634,25 @@ async def _probe_direct_motor_suite(
     run_id: str,
     artifacts: RunArtifacts,
     show_thoughts: bool,
+    tap_mode: str = "direct-motor",
 ) -> ProbeOutcome:
     captured_at = time.monotonic()
-    cases = (
-        (MotorToken.WAIT, True, 0.0, 0),
-        (MotorToken.LEFT_SHORT, True, -0.15, 10),
-        (MotorToken.LEFT_LONG, True, -0.35, 10),
-        (MotorToken.RIGHT_SHORT, True, 0.15, 10),
-        (MotorToken.RIGHT_LONG, False, None, 10),
-        (MotorToken.FIRE, True, 0.0, 10),
-    )
+    if tap_mode == "direct-motor-lite":
+        cases = (
+            (MotorToken.WAIT, True, 0.0, 0),
+            (MotorToken.LEFT_HOLD, True, -0.35, 10),
+            (MotorToken.RIGHT_HOLD, False, None, 10),
+            (MotorToken.FIRE, True, 0.0, 10),
+        )
+    else:
+        cases = (
+            (MotorToken.WAIT, True, 0.0, 0),
+            (MotorToken.LEFT_SHORT, True, -0.15, 10),
+            (MotorToken.LEFT_LONG, True, -0.35, 10),
+            (MotorToken.RIGHT_SHORT, True, 0.15, 10),
+            (MotorToken.RIGHT_LONG, False, None, 10),
+            (MotorToken.FIRE, True, 0.0, 10),
+        )
     frames: dict[MotorToken, object] = {}
     streams: dict[MotorToken, StreamResult] = {}
 
@@ -615,7 +677,12 @@ async def _probe_direct_motor_suite(
             hits=0,
             damage=0,
         )
-        parser = MotorTokenParser(expected_run_id=run_id, expected_obs=seq)
+        parser = MotorTokenParser(
+            expected_run_id=run_id,
+            expected_obs=seq,
+            allowed_tokens=_allowed_motor_tokens(tap_mode),
+            token_aliases=_motor_token_aliases(tap_mode),
+        )
 
         def on_reasoning(text: str, arrived_at: float) -> None:
             artifacts.thought(
@@ -646,8 +713,8 @@ async def _probe_direct_motor_suite(
     artifacts.event(
         "probe_started",
         model=getattr(pilot, "client", None) and pilot.client.model,
-        tap_mode="direct-motor",
-        tokens=[token.name for token in MotorToken],
+        tap_mode=tap_mode,
+        tokens=[expected.name for expected, *_ in cases],
     )
     await asyncio.gather(
         *(
@@ -684,16 +751,16 @@ async def _probe_direct_motor_suite(
     artifacts.event(
         "probe_finished",
         passed=passed,
-        marker_action="ALL_6" if passed else None,
-        expected_action="ALL_6",
+        marker_action=f"ALL_{len(cases)}" if passed else None,
+        expected_action=f"ALL_{len(cases)}",
         semantically_correct=semantically_correct,
         marker_latency_ms=latency,
         specialist_results=suite_results,
     )
     return ProbeOutcome(
         passed=passed,
-        marker_action="ALL_6" if passed else None,
-        expected_action="ALL_6",
+        marker_action=f"ALL_{len(cases)}" if passed else None,
+        expected_action=f"ALL_{len(cases)}",
         semantically_correct=semantically_correct,
         marker_latency_ms=latency,
         stream=streams[MotorToken.FIRE],
@@ -716,6 +783,7 @@ async def run_practice_range(
     tap_mode: str,
     scenario: str,
     world_clock: str = "unpaused",
+    motor_body: str = "legacy",
     direct_max_age_ms: int = 300,
     direct_aim_assist: bool = False,
     council_movement_ttl_ms: int = 600,
@@ -728,10 +796,34 @@ async def run_practice_range(
         raise ValueError("lanes must be between one and sixteen")
     if request_limit < 0:
         raise ValueError("request limit cannot be negative")
-    if world_clock not in {"unpaused", "vago-sync"}:
-        raise ValueError("world clock must be unpaused or vago-sync")
+    if world_clock not in {"unpaused", "vago-sync", "clock-thread"}:
+        raise ValueError("world clock must be unpaused, vago-sync, or clock-thread")
+    if motor_body not in {"legacy", "tick-lease", "clock-thread"}:
+        raise ValueError("motor body must be legacy, tick-lease, or clock-thread")
+    if world_clock == "clock-thread":
+        if tap_mode not in {"direct-motor", "direct-motor-lite"}:
+            raise ValueError("clock-thread currently requires a direct-motor mode")
+        if motor_body != "clock-thread":
+            raise ValueError("clock-thread requires the clock-thread motor body")
+        return await _run_player_clock_thread_motor_range(
+            pilot=pilot,
+            run_id=run_id,
+            artifacts=artifacts,
+            duration_seconds=duration_seconds,
+            observation_interval=observation_interval,
+            lanes=lanes,
+            request_limit=request_limit,
+            visible=visible,
+            seed=seed,
+            show_thoughts=show_thoughts,
+            scenario=scenario,
+            motor_token_max_age_ms=motor_token_max_age_ms,
+            tap_mode=tap_mode,
+        )
+    if motor_body == "clock-thread":
+        raise ValueError("clock-thread motor body requires world-clock clock-thread")
     if world_clock == "vago-sync":
-        if tap_mode != "direct-motor":
+        if tap_mode not in {"direct-motor", "direct-motor-lite"}:
             raise ValueError("vago-sync currently requires direct-motor V4")
         return await _run_vago_sync_motor_range(
             pilot=pilot,
@@ -745,18 +837,21 @@ async def run_practice_range(
             scenario=scenario,
             configured_lanes=lanes,
             motor_token_max_age_ms=motor_token_max_age_ms,
+            motor_body=motor_body,
+            tap_mode=tap_mode,
         )
 
     metrics = RunMetrics()
     direct_mode = tap_mode in {"direct-shot", "direct-bit"}
     council_mode = tap_mode == "four-agent"
-    motor_token_mode = tap_mode == "direct-motor"
+    motor_token_mode = tap_mode in {"direct-motor", "direct-motor-lite"}
     if council_mode and lanes < len(SPECIALISTS):
         raise ValueError("four-agent mode needs at least four concurrent lanes")
     if motor_token_mode:
         arbiter = MotorTokenArbiter(
             run_id=run_id,
             maximum_age_ms=motor_token_max_age_ms,
+            game_tick_lease=motor_body == "tick-lease",
         )
     elif council_mode:
         arbiter = MotorCouncilArbiter(
@@ -782,6 +877,46 @@ async def run_practice_range(
     initialization_started = time.monotonic()
     launch_stopped = False
     game_loop_duration_ms = 0.0
+    held_motor_obs: int | None = None
+    held_motor_action: Action | None = None
+    held_motor_set_game_tick: int | None = None
+    held_motor_expires_at_game_tick: int | None = None
+    held_motor_overrun_recorded = False
+
+    def record_native_expiry_overrun(current_game_tick: int) -> None:
+        """Invalidate tick-lease runs when ASYNC_PLAYER held an action too long."""
+
+        nonlocal held_motor_overrun_recorded
+        if (
+            not motor_token_mode
+            or motor_body != "tick-lease"
+            or held_motor_action in {None, Action.WAIT}
+            or held_motor_expires_at_game_tick is None
+            or held_motor_set_game_tick is None
+            or held_motor_overrun_recorded
+            or current_game_tick <= held_motor_expires_at_game_tick
+        ):
+            return
+        overrun_ticks = current_game_tick - held_motor_expires_at_game_tick
+        held_native_ticks = current_game_tick - held_motor_set_game_tick
+        held_motor_overrun_recorded = True
+        metrics.motor_token_native_expiry_violations += 1
+        metrics.motor_token_native_expiry_overrun_ticks += overrun_ticks
+        metrics.motor_token_native_expiry_max_overrun_ticks = max(
+            metrics.motor_token_native_expiry_max_overrun_ticks,
+            overrun_ticks,
+        )
+        artifacts.event(
+            "motor_token_native_expiry_overrun",
+            obs=held_motor_obs,
+            action=held_motor_action.value,
+            set_game_tick=held_motor_set_game_tick,
+            expires_at_game_tick=held_motor_expires_at_game_tick,
+            observed_game_tick=current_game_tick,
+            held_native_ticks=held_native_ticks,
+            overrun_ticks=overrun_ticks,
+            comparison_valid=False,
+        )
 
     artifacts.event(
         "range_started",
@@ -794,6 +929,7 @@ async def run_practice_range(
         tap_mode=tap_mode,
         scenario=scenario,
         world_clock=world_clock,
+        motor_body=motor_body,
         clock_backend="vizdoom-async-player",
         direct_max_age_ms=direct_max_age_ms if direct_mode else None,
         direct_aim_assist=direct_aim_assist if direct_mode else None,
@@ -816,7 +952,7 @@ async def run_practice_range(
         async_player=True,
     ) as arena:
         started = time.monotonic()
-        initial_combat = arena.observe(seq=0)
+        initial_combat = _track_observed_ammo(metrics, arena.observe(seq=0))
         next_observation_at = started
         next_tick_at = started
         artifacts.event(
@@ -833,7 +969,7 @@ async def run_practice_range(
                 ) or launch_stopped
 
                 live_state = (
-                    arena.observe(seq=latest_obs)
+                    _track_observed_ammo(metrics, arena.observe(seq=latest_obs))
                     if tap_mode
                     in {
                         "fire-gate",
@@ -841,6 +977,7 @@ async def run_practice_range(
                         "direct-bit",
                         "four-agent",
                         "direct-motor",
+                        "direct-motor-lite",
                     }
                     else None
                 )
@@ -898,7 +1035,9 @@ async def run_practice_range(
                         <= request_limit
                     ):
                         latest_obs += 1
-                        observation = arena.observe(seq=latest_obs)
+                        observation = _track_observed_ammo(
+                            metrics, arena.observe(seq=latest_obs)
+                        )
                         last_observation = observation
                         observations[latest_obs] = observation
                         if direct_mode:
@@ -934,6 +1073,7 @@ async def run_practice_range(
                                     artifacts=artifacts,
                                     metrics=metrics,
                                     show_thoughts=show_thoughts,
+                                    tap_mode=tap_mode,
                                 )
                             )
                             tasks[task] = latest_obs
@@ -979,7 +1119,48 @@ async def run_practice_range(
 
                 if motor_token_mode:
                     assert isinstance(arbiter, MotorTokenArbiter)
-                    executed_motor_tick = arbiter.take_tick(now=now)
+                    executed_motor_tick = arbiter.take_tick(
+                        now=now, game_tick=arena.ticks
+                    )
+                    if executed_motor_tick is not None and live_state is not None:
+                        source = observations.get(executed_motor_tick.frame.obs)
+                        rejection = (
+                            _stale_direction_reason(
+                                executed_motor_tick.frame.token,
+                                source,
+                                live_state,
+                            )
+                            if source is not None
+                            else None
+                        )
+                        if rejection is not None:
+                            metrics.motor_token_direction_rejections[rejection] += 1
+                            artifacts.event(
+                                "motor_token_direction_rejected",
+                                reason=rejection,
+                                obs=executed_motor_tick.frame.obs,
+                                token=executed_motor_tick.frame.token.name,
+                                source_target_id=source.target_id,
+                                source_target_dx=source.target_dx,
+                                current_target_id=live_state.target_id,
+                                current_target_dx=live_state.target_dx,
+                                execute_game_tick=arena.ticks,
+                            )
+                            executed_motor_tick = replace(
+                                executed_motor_tick,
+                                action=Action.WAIT,
+                            )
+                    if (
+                        executed_motor_tick is not None
+                        and executed_motor_tick.preempted is not None
+                    ):
+                        metrics.motor_token_preemptions += 1
+                        artifacts.event(
+                            "motor_token_preempted",
+                            game_tick=arena.ticks,
+                            previous_obs=executed_motor_tick.preempted.obs,
+                            next_obs=executed_motor_tick.frame.obs,
+                        )
                     action = (
                         executed_motor_tick.action
                         if executed_motor_tick is not None
@@ -1032,23 +1213,55 @@ async def run_practice_range(
                     action=action,
                     obs=latest_obs,
                 )
+                execute_game_tick = arena.ticks
+                record_native_expiry_overrun(execute_game_tick)
                 step_started_at = time.monotonic()
                 reward = arena.step(action)
                 if executed_motor_tick is not None:
                     token = executed_motor_tick.frame.token
                     metrics.motor_token_ticks[token.name] += 1
+                    metrics.motor_token_loop_calls += 1
+                    metrics.motor_token_game_ticks.add(execute_game_tick)
+                    if executed_motor_tick.committed:
+                        metrics.motor_token_committed_decisions += 1
+                        metrics.motor_token_superseded_before_commit += (
+                            executed_motor_tick.superseded_before_commit
+                        )
+                        metrics.motor_token_selected[token.name] += 1
+                        artifacts.event(
+                            "motor_token_committed",
+                            obs=executed_motor_tick.frame.obs,
+                            obs_game_tick=executed_motor_tick.frame.obs_game_tick,
+                            execute_game_tick=execute_game_tick,
+                            token=token.value,
+                            token_name=token.name,
+                            superseded_before_commit=(
+                                executed_motor_tick.superseded_before_commit
+                            ),
+                        )
+                        if token is MotorToken.FIRE:
+                            metrics.motor_token_fire_decisions += 1
                     if action is Action.FIRE:
+                        metrics.motor_token_fire_loop_calls += 1
+                        metrics.motor_token_fire_game_ticks.add(execute_game_tick)
                         assert live_state is not None
                         before = live_state
-                        after = arena.observe(seq=latest_obs)
+                        after = _track_observed_ammo(
+                            metrics, arena.observe(seq=latest_obs)
+                        )
                         last_observation = after
                         source = observations[executed_motor_tick.frame.obs]
                         hit_delta = max(0, after.hits - before.hits)
                         damage_delta = max(0, after.damage - before.damage)
                         metrics.motor_token_fire_ticks += 1
+                        metrics.motor_token_ammo_decrements += max(
+                            0, before.ammo - after.ammo
+                        )
                         artifacts.event(
                             "motor_token_fire_executed",
                             source_obs=executed_motor_tick.frame.obs,
+                            source_game_tick=executed_motor_tick.frame.obs_game_tick,
+                            execute_game_tick=execute_game_tick,
                             source_token=token.name,
                             source_target_id=source.target_id,
                             source_target_dx=source.target_dx,
@@ -1066,6 +1279,7 @@ async def run_practice_range(
                             current_target_dx=before.target_dx,
                             ammo_before=before.ammo,
                             ammo_after=after.ammo,
+                            ammo_decrement=max(0, before.ammo - after.ammo),
                             hits_before=before.hits,
                             hits_after=after.hits,
                             hit_delta=hit_delta,
@@ -1076,11 +1290,37 @@ async def run_practice_range(
                             kills_after=after.kills,
                             reward=reward,
                         )
+                    if motor_body == "tick-lease":
+                        if (
+                            action is Action.WAIT
+                            or executed_motor_tick.expires_at_game_tick is None
+                        ):
+                            held_motor_obs = None
+                            held_motor_action = None
+                            held_motor_set_game_tick = None
+                            held_motor_expires_at_game_tick = None
+                            held_motor_overrun_recorded = False
+                        elif held_motor_obs != executed_motor_tick.frame.obs:
+                            held_motor_obs = executed_motor_tick.frame.obs
+                            held_motor_action = action
+                            held_motor_set_game_tick = execute_game_tick
+                            held_motor_expires_at_game_tick = (
+                                executed_motor_tick.expires_at_game_tick
+                            )
+                            held_motor_overrun_recorded = False
+                elif motor_token_mode and motor_body == "tick-lease":
+                    held_motor_obs = None
+                    held_motor_action = None
+                    held_motor_set_game_tick = None
+                    held_motor_expires_at_game_tick = None
+                    held_motor_overrun_recorded = False
                 if council_mode and action is Action.FIRE:
                     metrics.council_shots_executed += 1
                 if executed_direct_frame is not None:
                     before = live_state
-                    after = arena.observe(seq=latest_obs)
+                    after = _track_observed_ammo(
+                        metrics, arena.observe(seq=latest_obs)
+                    )
                     last_observation = after
                     source = observations[executed_direct_frame.obs]
                     hit_delta = max(0, after.hits - before.hits)
@@ -1139,9 +1379,12 @@ async def run_practice_range(
                 await asyncio.gather(*tasks, return_exceptions=True)
             episode_finished = arena.finished
             try:
-                final_observation = arena.observe(seq=latest_obs + 1)
+                final_observation = _track_observed_ammo(
+                    metrics, arena.observe(seq=latest_obs + 1)
+                )
             except vzd.ViZDoomError:
                 final_observation = last_observation
+            record_native_expiry_overrun(arena.ticks)
             total_reward = arena.total_reward
             ticks = arena.ticks
 
@@ -1166,6 +1409,7 @@ async def run_practice_range(
         "scenario": scenario,
         "seed": seed,
         "world_clock": world_clock,
+        "motor_body": motor_body,
         "clock_backend": "vizdoom-async-player",
         "duration_ms": round(game_loop_duration_ms, 3),
         "simulation_duration_ms": round(ticks / 35.0 * 1000.0, 3),
@@ -1200,15 +1444,310 @@ async def run_practice_range(
         "motor_token_decisions": metrics.motor_token_decisions,
         "motor_token_correct": metrics.motor_token_correct,
         "motor_token_incorrect": metrics.motor_token_incorrect,
+        "motor_token_queued_decisions": metrics.motor_token_queued_decisions,
+        "motor_token_queued_fire_decisions": metrics.motor_token_queued_fire_decisions,
+        "motor_token_committed_decisions": metrics.motor_token_committed_decisions,
+        "motor_token_superseded_before_commit": metrics.motor_token_superseded_before_commit,
         "motor_token_selected": dict(metrics.motor_token_selected),
         "motor_token_ticks": dict(metrics.motor_token_ticks),
+        "motor_token_loop_calls": metrics.motor_token_loop_calls,
+        "motor_token_game_ticks": sorted(metrics.motor_token_game_ticks),
+        "motor_token_unique_game_ticks": len(metrics.motor_token_game_ticks),
         "motor_token_preemptions": metrics.motor_token_preemptions,
+        "motor_token_direction_rejections": dict(
+            metrics.motor_token_direction_rejections
+        ),
+        "motor_token_fire_decisions": metrics.motor_token_fire_decisions,
         "motor_token_fire_ticks": metrics.motor_token_fire_ticks,
+        "motor_token_fire_loop_calls": metrics.motor_token_fire_loop_calls,
+        "motor_token_fire_game_ticks": sorted(metrics.motor_token_fire_game_ticks),
+        "motor_token_unique_fire_game_ticks": len(metrics.motor_token_fire_game_ticks),
+        "motor_token_ammo_decrements": metrics.motor_token_ammo_decrements,
         "motor_token_hits": metrics.motor_token_hits,
         "motor_token_damage": metrics.motor_token_damage,
+        "motor_token_native_expiry_violations": metrics.motor_token_native_expiry_violations,
+        "motor_token_native_expiry_overrun_ticks": metrics.motor_token_native_expiry_overrun_ticks,
+        "motor_token_native_expiry_max_overrun_ticks": metrics.motor_token_native_expiry_max_overrun_ticks,
+        "episode_ammo_delta": (
+            initial_combat.ammo - final_observation.ammo
+            if final_observation is not None
+            else None
+        ),
+        "episode_ammo_delta_valid_for_scenario": scenario == "defend_the_center",
+        "observed_ammo_decrements": metrics.observed_ammo_decrements,
+        "observed_ammo_increases": metrics.observed_ammo_increases,
+        "comparison_valid": not (
+            motor_body == "tick-lease"
+            and metrics.motor_token_native_expiry_violations > 0
+        ),
+        "invalid_reasons": (
+            ["native_action_expiry_overrun"]
+            if motor_body == "tick-lease"
+            and metrics.motor_token_native_expiry_violations > 0
+            else []
+        ),
         "budget_guard_stopped": metrics.budget_guard_stopped,
         "total_reward": total_reward,
         "final_observation": asdict(final_observation) if final_observation else None,
+        "episode_gif": str(artifacts.gif_path) if gif_written else None,
+    }
+    artifacts.event("range_finished", **summary)
+    return summary
+
+
+async def _run_player_clock_thread_motor_range(
+    *,
+    pilot,
+    run_id: str,
+    artifacts: RunArtifacts,
+    duration_seconds: float,
+    observation_interval: float,
+    lanes: int,
+    request_limit: int,
+    visible: bool,
+    seed: int,
+    show_thoughts: bool,
+    scenario: str,
+    motor_token_max_age_ms: int,
+    tap_mode: str,
+) -> dict[str, object]:
+    """Run formal D: PLAYER owns the native clock; asyncio owns only requests."""
+
+    metrics = RunMetrics()
+    decision_mailbox = DecisionMailbox(run_id=run_id)
+    observation_mailbox = LatestObservationMailbox()
+    clock = PlayerClockThread(
+        decision_mailbox=decision_mailbox,
+        observation_mailbox=observation_mailbox,
+        duration_seconds=duration_seconds,
+        observation_interval=observation_interval,
+        visible=visible,
+        seed=seed,
+        scenario=scenario,
+        motor_token_max_age_ms=motor_token_max_age_ms,
+    )
+    recorder = ReplayRecorder()
+    tasks: dict[asyncio.Task[StreamResult], int] = {}
+    launched_observations: set[int] = set()
+    launched = 0
+    stop_launching = False
+    started = time.monotonic()
+
+    artifacts.event(
+        "range_started",
+        run_id=run_id,
+        tap_mode=tap_mode,
+        scenario=scenario,
+        world_clock="clock-thread",
+        motor_body="clock-thread",
+        clock_backend="vizdoom-player-clock-thread",
+        configured_lanes=lanes,
+        motor_token_max_age_ms=motor_token_max_age_ms,
+        formal_condition="D",
+    )
+    clock.start()
+
+    try:
+        while clock.is_alive():
+            if tasks:
+                stop_launching = _harvest_finished(
+                    tasks=tasks,
+                    artifacts=artifacts,
+                    metrics=metrics,
+                ) or stop_launching
+
+            observation = observation_mailbox.latest()
+            if (
+                observation is not None
+                and observation.seq not in launched_observations
+                and len(tasks) < lanes
+                and launched < request_limit
+                and not stop_launching
+            ):
+                launched_observations.add(observation.seq)
+                launched += 1
+                task = asyncio.create_task(
+                    _run_clock_thread_motor_request(
+                        pilot=pilot,
+                        observation=observation,
+                        run_id=run_id,
+                        decision_mailbox=decision_mailbox,
+                        artifacts=artifacts,
+                        metrics=metrics,
+                        show_thoughts=show_thoughts,
+                        tap_mode=tap_mode,
+                    )
+                )
+                tasks[task] = observation.seq
+            await asyncio.sleep(0.002)
+
+        if tasks:
+            _harvest_finished(
+                tasks=tasks,
+                artifacts=artifacts,
+                metrics=metrics,
+            )
+    finally:
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        clock.stop()
+        await asyncio.to_thread(clock.join)
+
+    result = clock.result
+    for event in result.events:
+        artifacts.event(
+            event.kind,
+            clock_t_ms=round(event.clock_t_ms, 3),
+            **event.data,
+        )
+
+    for observation in result.observations:
+        _track_observed_ammo(metrics, observation)
+    for tick, frame, action, obs in result.frame_samples:
+        recorder.maybe_add(tick=tick, frame=frame, action=action, obs=obs)
+
+    initial_combat = result.initial_observation
+    final_observation = result.final_observation
+    stats = result.stats
+    metrics.accepted_markers = stats.queued_decisions
+    metrics.motor_token_queued_decisions = stats.queued_decisions
+    metrics.motor_token_queued_fire_decisions = stats.queued_fire_decisions
+    metrics.motor_token_committed_decisions = stats.committed_decisions
+    metrics.motor_token_fire_decisions = stats.committed_fire_decisions
+    metrics.motor_token_superseded_before_commit = stats.superseded_before_commit
+    metrics.motor_token_selected = stats.selected
+    metrics.motor_token_ticks = stats.token_ticks
+    metrics.motor_token_game_ticks = stats.game_ticks
+    metrics.motor_token_loop_calls = len(stats.game_ticks)
+    metrics.motor_token_fire_game_ticks = stats.fire_game_ticks
+    metrics.motor_token_fire_loop_calls = len(stats.fire_game_ticks)
+    metrics.motor_token_preemptions = stats.preemptions
+    metrics.motor_token_ammo_decrements = metrics.observed_ammo_decrements
+    metrics.motor_token_hits = max(
+        0, (final_observation.hits if final_observation else 0) - initial_combat.hits
+    )
+    metrics.motor_token_damage = max(
+        0,
+        (final_observation.damage if final_observation else 0)
+        - initial_combat.damage,
+    )
+    for event in result.events:
+        if event.kind == "motor_token_rejected":
+            metrics.rejected_markers[str(event.data.get("reason", "unknown"))] += 1
+
+    ticks = result.ticks
+    runner_wall_ms = (time.monotonic() - started) * 1000.0
+    requested_active_duration_ms = duration_seconds * 1000.0
+    active_duration_complete = (
+        result.episode_finished
+        or result.active_wall_ms >= requested_active_duration_ms * 0.95
+    )
+    simulation_duration_ms = ticks / 35.0 * 1000.0
+    effective_tick_hz = (
+        ticks / (result.active_wall_ms / 1000.0)
+        if result.active_wall_ms > 0
+        else 0.0
+    )
+    clock_rate_complete = result.episode_finished or effective_tick_hz >= 35.0 * 0.90
+    comparison_valid = active_duration_complete and clock_rate_complete
+    gif_written = recorder.save(artifacts.gif_path)
+    marker_latency = metrics.marker_latency_ms
+    summary: dict[str, object] = {
+        "run_id": run_id,
+        "tap_mode": tap_mode,
+        "scenario": scenario,
+        "seed": seed,
+        "world_clock": "clock-thread",
+        "motor_body": "clock-thread",
+        "clock_backend": "vizdoom-player-clock-thread",
+        "formal_condition": "D",
+        "duration_basis": "active_wall_time",
+        "duration_ms": round(result.active_wall_ms, 3),
+        "initialization_ms": round(result.initialization_ms, 3),
+        "active_wall_ms": round(result.active_wall_ms, 3),
+        "runner_wall_ms": round(runner_wall_ms, 3),
+        "requested_active_duration_ms": round(requested_active_duration_ms, 3),
+        "active_duration_complete": active_duration_complete,
+        "initialization_excluded_from_episode_clock": True,
+        "simulation_duration_ms": round(simulation_duration_ms, 3),
+        "effective_tick_hz": round(effective_tick_hz, 3),
+        "clock_rate_complete": clock_rate_complete,
+        "ticks": ticks,
+        "episode_finished": result.episode_finished,
+        "configured_lanes": lanes,
+        "effective_lanes": lanes,
+        "requests_launched": launched,
+        "requests_completed": metrics.completed_requests,
+        "request_errors": metrics.request_errors,
+        "accepted_markers": metrics.accepted_markers,
+        "rejected_markers": dict(metrics.rejected_markers),
+        "marker_latency_ms": marker_latency,
+        "mean_marker_latency_ms": (
+            sum(marker_latency) / len(marker_latency) if marker_latency else None
+        ),
+        "actions_by_tick": dict(stats.actions),
+        "coalesced_observations": max(
+            0, len(result.observations) - len(launched_observations)
+        ),
+        "motor_token_decisions": metrics.motor_token_decisions,
+        "motor_token_correct": metrics.motor_token_correct,
+        "motor_token_incorrect": metrics.motor_token_incorrect,
+        "motor_token_queued_decisions": metrics.motor_token_queued_decisions,
+        "motor_token_queued_fire_decisions": (
+            metrics.motor_token_queued_fire_decisions
+        ),
+        "motor_token_committed_decisions": metrics.motor_token_committed_decisions,
+        "motor_token_superseded_before_commit": (
+            metrics.motor_token_superseded_before_commit
+        ),
+        "motor_token_selected": dict(metrics.motor_token_selected),
+        "motor_token_ticks": dict(metrics.motor_token_ticks),
+        "motor_token_loop_calls": metrics.motor_token_loop_calls,
+        "motor_token_game_ticks": sorted(metrics.motor_token_game_ticks),
+        "motor_token_unique_game_ticks": len(metrics.motor_token_game_ticks),
+        "motor_token_preemptions": metrics.motor_token_preemptions,
+        "motor_token_direction_rejections": dict(
+            metrics.motor_token_direction_rejections
+        ),
+        "motor_token_fire_decisions": metrics.motor_token_fire_decisions,
+        "motor_token_fire_ticks": len(metrics.motor_token_fire_game_ticks),
+        "motor_token_fire_loop_calls": metrics.motor_token_fire_loop_calls,
+        "motor_token_fire_game_ticks": sorted(metrics.motor_token_fire_game_ticks),
+        "motor_token_unique_fire_game_ticks": len(
+            metrics.motor_token_fire_game_ticks
+        ),
+        "motor_token_ammo_decrements": metrics.motor_token_ammo_decrements,
+        "motor_token_hits": metrics.motor_token_hits,
+        "motor_token_damage": metrics.motor_token_damage,
+        "motor_token_native_expiry_violations": 0,
+        "motor_token_native_expiry_overrun_ticks": 0,
+        "motor_token_native_expiry_max_overrun_ticks": 0,
+        "episode_ammo_delta": (
+            initial_combat.ammo - final_observation.ammo
+            if final_observation is not None
+            else None
+        ),
+        "episode_ammo_delta_valid_for_scenario": scenario == "defend_the_center",
+        "observed_ammo_decrements": metrics.observed_ammo_decrements,
+        "observed_ammo_increases": metrics.observed_ammo_increases,
+        "comparison_valid": comparison_valid,
+        "invalid_reasons": [
+            reason
+            for reason, invalid in (
+                ("active_duration_incomplete", not active_duration_complete),
+                ("native_clock_rate_below_90_percent", not clock_rate_complete),
+            )
+            if invalid
+        ],
+        "frame_capture_enabled": clock.capture_frames,
+        "native_action_expiry_model": "PLAYER_make_action_one_tick",
+        "budget_guard_stopped": metrics.budget_guard_stopped,
+        "total_reward": result.total_reward,
+        "final_observation": (
+            asdict(final_observation) if final_observation is not None else None
+        ),
         "episode_gif": str(artifacts.gif_path) if gif_written else None,
     }
     artifacts.event("range_finished", **summary)
@@ -1228,6 +1767,8 @@ async def _run_vago_sync_motor_range(
     scenario: str,
     configured_lanes: int,
     motor_token_max_age_ms: int,
+    motor_body: str,
+    tap_mode: str,
 ) -> dict[str, object]:
     """Run V4 behind VAGO's blocking synchronous world clock.
 
@@ -1241,6 +1782,7 @@ async def _run_vago_sync_motor_range(
     arbiter = MotorTokenArbiter(
         run_id=run_id,
         maximum_age_ms=motor_token_max_age_ms,
+        game_tick_lease=motor_body == "tick-lease",
     )
     recorder = ReplayRecorder()
     observations: dict[int, Observation] = {}
@@ -1264,11 +1806,12 @@ async def _run_vago_sync_motor_range(
         request_limit=request_limit,
         visible=visible,
         seed=seed,
-        tap_mode="direct-motor",
+        tap_mode=tap_mode,
         scenario=scenario,
         world_clock="vago-sync",
         clock_backend="vizdoom-player",
         motor_token_max_age_ms=motor_token_max_age_ms,
+        motor_body=motor_body,
     )
 
     with PracticeRange(
@@ -1279,7 +1822,7 @@ async def _run_vago_sync_motor_range(
         async_player=False,
     ) as arena:
         started = time.monotonic()
-        initial_combat = arena.observe(seq=0)
+        initial_combat = _track_observed_ammo(metrics, arena.observe(seq=0))
         artifacts.event(
             "arena_initialized",
             initialization_ms=(started - initialization_started) * 1000.0,
@@ -1288,7 +1831,9 @@ async def _run_vago_sync_motor_range(
         def execute_tick(motor_tick: MotorTick | None) -> None:
             nonlocal last_observation, previous_action
             action = motor_tick.action if motor_tick is not None else Action.WAIT
-            live_state = arena.observe(seq=latest_obs)
+            live_state = _track_observed_ammo(
+                metrics, arena.observe(seq=latest_obs)
+            )
             last_observation = live_state
             metrics.actions[action.value] += 1
             if action is not previous_action:
@@ -1300,22 +1845,59 @@ async def _run_vago_sync_motor_range(
                 action=action,
                 obs=latest_obs,
             )
+            execute_game_tick = arena.ticks
             step_started_at = time.monotonic()
             reward = arena.step(action)
 
             if motor_tick is not None:
                 token = motor_tick.frame.token
                 metrics.motor_token_ticks[token.name] += 1
+                metrics.motor_token_loop_calls += 1
+                metrics.motor_token_game_ticks.add(execute_game_tick)
+                if motor_tick.committed:
+                    metrics.motor_token_committed_decisions += 1
+                    metrics.motor_token_superseded_before_commit += (
+                        motor_tick.superseded_before_commit
+                    )
+                    metrics.motor_token_selected[token.name] += 1
+                    artifacts.event(
+                        "motor_token_committed",
+                        obs=motor_tick.frame.obs,
+                        obs_game_tick=motor_tick.frame.obs_game_tick,
+                        execute_game_tick=execute_game_tick,
+                        token=token.value,
+                        token_name=token.name,
+                        superseded_before_commit=motor_tick.superseded_before_commit,
+                    )
+                    if token is MotorToken.FIRE:
+                        metrics.motor_token_fire_decisions += 1
+                if motor_tick.preempted is not None:
+                    metrics.motor_token_preemptions += 1
+                    artifacts.event(
+                        "motor_token_preempted",
+                        game_tick=arena.ticks,
+                        previous_obs=motor_tick.preempted.obs,
+                        next_obs=motor_tick.frame.obs,
+                    )
                 if action is Action.FIRE:
-                    after = arena.observe(seq=latest_obs)
+                    metrics.motor_token_fire_loop_calls += 1
+                    metrics.motor_token_fire_game_ticks.add(execute_game_tick)
+                    after = _track_observed_ammo(
+                        metrics, arena.observe(seq=latest_obs)
+                    )
                     last_observation = after
                     source = observations[motor_tick.frame.obs]
                     hit_delta = max(0, after.hits - live_state.hits)
                     damage_delta = max(0, after.damage - live_state.damage)
                     metrics.motor_token_fire_ticks += 1
+                    metrics.motor_token_ammo_decrements += max(
+                        0, live_state.ammo - after.ammo
+                    )
                     artifacts.event(
                         "motor_token_fire_executed",
                         source_obs=motor_tick.frame.obs,
+                        source_game_tick=motor_tick.frame.obs_game_tick,
+                        execute_game_tick=execute_game_tick,
                         source_token=token.name,
                         source_target_id=source.target_id,
                         source_target_dx=source.target_dx,
@@ -1329,6 +1911,7 @@ async def _run_vago_sync_motor_range(
                         current_target_dx=live_state.target_dx,
                         ammo_before=live_state.ammo,
                         ammo_after=after.ammo,
+                        ammo_decrement=max(0, live_state.ammo - after.ammo),
                         hits_before=live_state.hits,
                         hits_after=after.hits,
                         hit_delta=hit_delta,
@@ -1354,7 +1937,9 @@ async def _run_vago_sync_motor_range(
             and launched < request_limit
         ):
             latest_obs += 1
-            observation = arena.observe(seq=latest_obs)
+            observation = _track_observed_ammo(
+                metrics, arena.observe(seq=latest_obs)
+            )
             last_observation = observation
             observations[latest_obs] = observation
             artifacts.event("observation", **asdict(observation))
@@ -1377,6 +1962,7 @@ async def _run_vago_sync_motor_range(
                     metrics=metrics,
                     show_thoughts=show_thoughts,
                     accepted_event=accepted_event,
+                    tap_mode=tap_mode,
                 )
             )
             accepted_wait = asyncio.create_task(accepted_event.wait())
@@ -1398,7 +1984,9 @@ async def _run_vago_sync_motor_range(
 
                 if decision_received:
                     while not arena.finished and arena.ticks < target_ticks:
-                        motor_tick = arbiter.take_tick(now=time.monotonic())
+                        motor_tick = arbiter.take_tick(
+                            now=time.monotonic(), game_tick=arena.ticks
+                        )
                         if motor_tick is None:
                             break
                         execute_tick(motor_tick)
@@ -1454,7 +2042,9 @@ async def _run_vago_sync_motor_range(
         elif launched >= request_limit and stop_reason != "budget_guard":
             stop_reason = "request_limit"
         try:
-            final_observation = arena.observe(seq=latest_obs + 1)
+            final_observation = _track_observed_ammo(
+                metrics, arena.observe(seq=latest_obs + 1)
+            )
         except vzd.ViZDoomError:
             final_observation = last_observation
         total_reward = arena.total_reward
@@ -1472,10 +2062,11 @@ async def _run_vago_sync_motor_range(
     marker_latency = metrics.marker_latency_ms
     summary: dict[str, object] = {
         "run_id": run_id,
-        "tap_mode": "direct-motor",
+        "tap_mode": tap_mode,
         "scenario": scenario,
         "seed": seed,
         "world_clock": "vago-sync",
+        "motor_body": motor_body,
         "clock_backend": "vizdoom-player",
         "duration_basis": "simulation_time",
         "requested_simulation_duration_ms": duration_seconds * 1000.0,
@@ -1501,12 +2092,45 @@ async def _run_vago_sync_motor_range(
         "motor_token_decisions": metrics.motor_token_decisions,
         "motor_token_correct": metrics.motor_token_correct,
         "motor_token_incorrect": metrics.motor_token_incorrect,
+        "motor_token_queued_decisions": metrics.motor_token_queued_decisions,
+        "motor_token_queued_fire_decisions": metrics.motor_token_queued_fire_decisions,
+        "motor_token_committed_decisions": metrics.motor_token_committed_decisions,
+        "motor_token_superseded_before_commit": metrics.motor_token_superseded_before_commit,
         "motor_token_selected": dict(metrics.motor_token_selected),
         "motor_token_ticks": dict(metrics.motor_token_ticks),
+        "motor_token_loop_calls": metrics.motor_token_loop_calls,
+        "motor_token_game_ticks": sorted(metrics.motor_token_game_ticks),
+        "motor_token_unique_game_ticks": len(metrics.motor_token_game_ticks),
         "motor_token_preemptions": metrics.motor_token_preemptions,
+        "motor_token_fire_decisions": metrics.motor_token_fire_decisions,
         "motor_token_fire_ticks": metrics.motor_token_fire_ticks,
+        "motor_token_fire_loop_calls": metrics.motor_token_fire_loop_calls,
+        "motor_token_fire_game_ticks": sorted(metrics.motor_token_fire_game_ticks),
+        "motor_token_unique_fire_game_ticks": len(metrics.motor_token_fire_game_ticks),
+        "motor_token_ammo_decrements": metrics.motor_token_ammo_decrements,
         "motor_token_hits": metrics.motor_token_hits,
         "motor_token_damage": metrics.motor_token_damage,
+        "motor_token_native_expiry_violations": metrics.motor_token_native_expiry_violations,
+        "motor_token_native_expiry_overrun_ticks": metrics.motor_token_native_expiry_overrun_ticks,
+        "motor_token_native_expiry_max_overrun_ticks": metrics.motor_token_native_expiry_max_overrun_ticks,
+        "episode_ammo_delta": (
+            initial_combat.ammo - final_observation.ammo
+            if final_observation is not None
+            else None
+        ),
+        "episode_ammo_delta_valid_for_scenario": scenario == "defend_the_center",
+        "observed_ammo_decrements": metrics.observed_ammo_decrements,
+        "observed_ammo_increases": metrics.observed_ammo_increases,
+        "comparison_valid": not (
+            motor_body == "tick-lease"
+            and metrics.motor_token_native_expiry_violations > 0
+        ),
+        "invalid_reasons": (
+            ["native_action_expiry_overrun"]
+            if motor_body == "tick-lease"
+            and metrics.motor_token_native_expiry_violations > 0
+            else []
+        ),
         "sync_fail_closed_wait_ticks": sync_fail_closed_wait_ticks,
         "budget_guard_stopped": metrics.budget_guard_stopped,
         "total_reward": total_reward,
@@ -1728,6 +2352,95 @@ async def _run_council_request(
     return result
 
 
+async def _run_clock_thread_motor_request(
+    *,
+    pilot,
+    observation: Observation,
+    run_id: str,
+    decision_mailbox: DecisionMailbox,
+    artifacts: RunArtifacts,
+    metrics: RunMetrics,
+    show_thoughts: bool,
+    tap_mode: str,
+) -> StreamResult:
+    """Parse a motor token and hand it to D's game thread mailbox."""
+
+    parser = MotorTokenParser(
+        expected_run_id=run_id,
+        expected_obs=observation.seq,
+        expected_game_tick=observation.game_tick,
+        allowed_tokens=_allowed_motor_tokens(tap_mode),
+        token_aliases=_motor_token_aliases(tap_mode),
+    )
+    expected = _motor_expected_token(observation, tap_mode=tap_mode)
+
+    def on_reasoning(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source="motor_token.reasoning.text",
+        )
+
+    def on_visible(text: str, arrived_at: float) -> None:
+        artifacts.thought(
+            obs=observation.seq,
+            text=text,
+            source="motor_token.visible",
+        )
+        if show_thoughts:
+            print(
+                f"\n[PLAYER-CLOCK MOTOR] obs={observation.seq:03d} {text}",
+                end="",
+                flush=True,
+            )
+        for frame in parser.feed(text, now=arrived_at):
+            decision = ClockDecision(
+                frame=frame,
+                captured_at=observation.captured_at,
+                arrived_at=arrived_at,
+            )
+            decision_mailbox.submit(decision)
+            latency = (arrived_at - observation.captured_at) * 1000.0
+            correct = frame.token is expected
+            metrics.motor_token_decisions += 1
+            if correct:
+                metrics.motor_token_correct += 1
+            else:
+                metrics.motor_token_incorrect += 1
+            metrics.marker_latency_ms.append(latency)
+            artifacts.event(
+                "motor_token_submitted",
+                obs=frame.obs,
+                token=frame.token.value,
+                token_name=frame.token.name,
+                pulse_ticks=frame.token.pulse_ticks,
+                latency_ms=latency,
+                expected_token=expected.value,
+                expected_token_name=expected.name,
+                semantically_correct=correct,
+                obs_game_tick=frame.obs_game_tick,
+                clock_mailbox=True,
+            )
+
+    protocol = "motor4-hold5" if tap_mode == "direct-motor-lite" else "motor6"
+    artifacts.event("request_started", obs=observation.seq, protocol=protocol)
+    result = await pilot.think(
+        observation=observation,
+        run_id=run_id,
+        on_reasoning=on_reasoning,
+        on_visible=on_visible,
+    )
+    if show_thoughts:
+        print()
+    artifacts.event(
+        "request_finished",
+        obs=observation.seq,
+        protocol=protocol,
+        **_stream_log(result),
+    )
+    return result
+
+
 async def _run_motor_token_request(
     *,
     pilot,
@@ -1738,12 +2451,16 @@ async def _run_motor_token_request(
     metrics: RunMetrics,
     show_thoughts: bool,
     accepted_event: asyncio.Event | None = None,
+    tap_mode: str = "direct-motor",
 ) -> StreamResult:
     parser = MotorTokenParser(
         expected_run_id=run_id,
         expected_obs=observation.seq,
+        expected_game_tick=observation.game_tick,
+        allowed_tokens=_allowed_motor_tokens(tap_mode),
+        token_aliases=_motor_token_aliases(tap_mode),
     )
-    expected = _motor_token_rule(observation)
+    expected = _motor_expected_token(observation, tap_mode=tap_mode)
 
     def on_reasoning(text: str, arrived_at: float) -> None:
         artifacts.thought(
@@ -1769,6 +2486,7 @@ async def _run_motor_token_request(
                 frame,
                 captured_at=observation.captured_at,
                 now=arrived_at,
+                captured_game_tick=observation.game_tick,
             )
             latency = (arrived_at - observation.captured_at) * 1000.0
             correct = frame.token is expected
@@ -1778,9 +2496,16 @@ async def _run_motor_token_request(
             else:
                 metrics.motor_token_incorrect += 1
             if decision.accepted:
+                metrics.motor_token_queued_decisions += 1
+                if frame.token is MotorToken.FIRE:
+                    metrics.motor_token_queued_fire_decisions += 1
+                if not arbiter.game_tick_lease:
+                    metrics.motor_token_committed_decisions += 1
+                    metrics.motor_token_selected[frame.token.name] += 1
+                    if frame.token is MotorToken.FIRE:
+                        metrics.motor_token_fire_decisions += 1
                 metrics.accepted_markers += 1
                 metrics.marker_latency_ms.append(latency)
-                metrics.motor_token_selected[frame.token.name] += 1
                 if accepted_event is not None:
                     accepted_event.set()
                 if decision.preempted is not None:
@@ -1806,6 +2531,9 @@ async def _run_motor_token_request(
                 expected_token=expected.value,
                 expected_token_name=expected.name,
                 semantically_correct=correct,
+                obs_game_tick=frame.obs_game_tick,
+                queued=decision.reason == "queued_for_game_tick",
+                committed=decision.accepted and not arbiter.game_tick_lease,
                 preempted_obs=(
                     decision.preempted.obs
                     if decision.preempted is not None
@@ -1898,6 +2626,23 @@ def _motor_messages(
     specialist: Action | None = None,
     blackboard: str = "",
 ) -> list[dict[str, str]]:
+    if tap_mode == "direct-motor-lite":
+        system = (
+            "Reply with exactly one uppercase ASCII letter and nothing else. "
+            "Apply the first matching rule only: (1) v=0=>R; "
+            "(2) v=1 and a<=0=>W; (3) x<-80=>L; "
+            "(4) -80<=x<=80=>F; (5) x>80=>R. "
+            "Examples: v=1 x=-350 a=10=>L; v=1 x=0 a=10=>F. /no_think"
+        )
+        user = (
+            f"v={int(observation.target_visible)} "
+            f"x={_direct_bit_x(observation)} a={observation.ammo}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
     if tap_mode == "direct-motor":
         system = (
             "Reply with exactly one ASCII digit and nothing else. Examples: "
@@ -2086,6 +2831,102 @@ def _motor_token_rule(observation: Observation) -> MotorToken:
     if x <= 220:
         return MotorToken.RIGHT_SHORT
     return MotorToken.RIGHT_LONG
+
+
+def _stale_direction_reason(
+    token: MotorToken,
+    source: Observation,
+    current: Observation,
+    *,
+    fire_window: float = 0.080,
+) -> str | None:
+    """Reject only an enemy-relative turn that has already reached its goal.
+
+    Search turns captured with no visible target remain valid. When a visible
+    target caused LEFT/RIGHT, the cloud result may arrive after that same enemy
+    crossed into the firing window. Failing closed to WAIT at that boundary
+    prevents a stale pulse from carrying the crosshair across the enemy; it
+    does not locally choose a corrective direction or fire for the model.
+    """
+
+    if token.action not in {Action.LEFT, Action.RIGHT}:
+        return None
+    if not source.target_visible or source.target_id is None:
+        return None
+    if not current.target_visible or current.target_dx is None:
+        return "target_lost"
+    if current.target_id != source.target_id:
+        return "target_changed"
+    if token.action is Action.LEFT and current.target_dx >= -fire_window:
+        return "entered_fire_window"
+    if token.action is Action.RIGHT and current.target_dx <= fire_window:
+        return "entered_fire_window"
+    return None
+
+
+def _motor_token_lite_rule(observation: Observation) -> MotorToken:
+    """Four-choice V5 policy; directions hold until preempted or five ticks."""
+
+    if not observation.target_visible or observation.target_dx is None:
+        return MotorToken.RIGHT_HOLD
+    if observation.ammo <= 0:
+        return MotorToken.WAIT
+    x = _direct_bit_x(observation)
+    if x < -80:
+        return MotorToken.LEFT_HOLD
+    if x <= 80:
+        return MotorToken.FIRE
+    return MotorToken.RIGHT_HOLD
+
+
+def _allowed_motor_tokens(tap_mode: str) -> frozenset[MotorToken] | None:
+    if tap_mode == "direct-motor":
+        return frozenset(
+            {
+                MotorToken.WAIT,
+                MotorToken.LEFT_SHORT,
+                MotorToken.LEFT_LONG,
+                MotorToken.RIGHT_SHORT,
+                MotorToken.RIGHT_LONG,
+                MotorToken.FIRE,
+            }
+        )
+    if tap_mode != "direct-motor-lite":
+        return None
+    return frozenset(
+        {
+            MotorToken.WAIT,
+            MotorToken.LEFT_HOLD,
+            MotorToken.RIGHT_HOLD,
+            MotorToken.FIRE,
+        }
+    )
+
+
+def _motor_token_aliases(tap_mode: str) -> dict[str, MotorToken] | None:
+    if tap_mode != "direct-motor-lite":
+        return None
+    return {
+        "W": MotorToken.WAIT,
+        "L": MotorToken.LEFT_HOLD,
+        "R": MotorToken.RIGHT_HOLD,
+        "F": MotorToken.FIRE,
+    }
+
+
+def _motor_wire_value(token: MotorToken, *, tap_mode: str) -> str:
+    aliases = _motor_token_aliases(tap_mode)
+    if aliases is None:
+        return token.value
+    return next(digit for digit, mapped in aliases.items() if mapped is token)
+
+
+def _motor_expected_token(
+    observation: Observation, *, tap_mode: str
+) -> MotorToken:
+    if tap_mode == "direct-motor-lite":
+        return _motor_token_lite_rule(observation)
+    return _motor_token_rule(observation)
 
 
 def _direct_bit_x(observation: Observation) -> int:

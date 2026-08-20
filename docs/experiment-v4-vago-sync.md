@@ -82,6 +82,47 @@ The paired runs also had different network latency distributions (p50 250 vs 219
 threefold score ratio cannot be attributed to pausing alone. However, no amount of network jitter changes
 the observed architectural fact: in `vago-sync`, all 158 request waits consumed zero game tics.
 
+## 2026-08-21 replay insight: the stopped world also freezes aiming error
+
+The live-world failure replay revealed that V4 frequently chose the correct direction for its captured
+`x`, but the target crossed the center before the token arrived. Repeated LONG tokens then overshot the
+target and erased the next firing opportunity. That failure mode cannot occur during a `vago-sync`
+request: the target, crosshair, weapon state, and chosen `x` all remain frozen until the digit arrives.
+
+This explains the stopped run's apparently extraordinary aim more directly than WAIT count alone. Its
+64 FIRE motor tics became only seven physical shots because of cooldown, yet six of those seven shots hit
+and produced six kills. The clock did not improve the model's spatial reasoning; it made the observed
+geometry stay true until execution.
+
+Important correction: the historical stopped run above did **not** recognize or kill the Freedoom
+`MarineChainsawVzd` actor. Its six kills came only from enemies that passed the old name filter. The
+current worktree recognizes `MarineChainsawVzd` by name and Monster category, but V4-S has not yet been
+remeasured with that fix. A score beyond ten kills is therefore only a testable hypothesis, not a result.
+Such a result would still describe a paused-world controller, not aiming performance in a continuously
+moving 35 Hz world.
+
+## Proposed role: V4-S as the controller oracle
+
+The stopped condition is useful as more than a VAGO comparison. It can be the first stage of the project's
+test ladder: establish whether the **System + LLM** mapping is coherent before adding real-time delay.
+
+```text
+Stage 1: V4-S stopped world
+  Does one observation produce a sensible complete command?
+  Can the policy aim, fire, handle every monster class, and finish cooldowns?
+
+Stage 2: same policy in unpaused Formal D
+  How much performance is lost only because observations age while the world moves?
+
+Stage 3: asynchronous fixes
+  Reduce stale-side execution, overshoot, lane interference, and missed fire windows.
+```
+
+V4-S should therefore be the correctness baseline, not the real-time headline. If it cannot kill a monster
+in the frozen condition, latency is exonerated and the defect is in perception, prompt semantics, action
+mapping, or game mechanics. If it succeeds while Formal D fails, the delta belongs to temporal control.
+This ordering prevents every failure from being vaguely blamed on "the Cloud being slow."
+
 ## Reproduce
 
 Stopped clock:

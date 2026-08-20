@@ -15,7 +15,11 @@ seed-XX__kills-XX__hits-XX__health-XX__ticks-XXX__終了状態.gif
 17本は15秒＝525 game tickを完走した。seed 18だけは400 requestへ到達し、
 464 tickで`request_limit`終了した。この失敗も削除せず掲載する。
 
-## ログ判定: NG — GIF肉眼審査が必要
+## ログ判定: NG — GIF肉眼審査済み
+
+肉眼審査では、Marineは大きく外れているのではなく、照準よりほんの少し右にいることが多かった。
+そのままFIREを続け、Marineが横移動または接近して当たり判定が照準へ入った時に倒している。
+つまり低い実弾命中率と`RIGHT_SHORT -> FIRE`の大量誤答は、GIFでも同じ現象として確認できた。
 
 高スコアだが、System＋LLMが素直に正しいとは判定できない。
 
@@ -42,7 +46,7 @@ Marineでは`RIGHT_SHORT`期待に対して`FIRE`を返した誤りが1,074回�
 seed 18はFIRE 362回、物理弾26発、5 killのままrequest上限へ達した。
 停止世界のスコアが、FIRE連打と銃のcooldown starvationを隠している。
 
-したがってovershoot対策へ進む前に、人間がGIFで次を確認する。
+overshoot対策へ進む前に、人間がGIFで次を確認し、2026-08-21に全項目の審査を完了した。
 
 1. Marineが画面中央より右にいるのにFIREを連打しているか。
 2. 弾が出ないFIRE中に敵・銃・worldがどう見えるか。

@@ -24,6 +24,48 @@ def test_cli_exposes_vago_sync_world_clock() -> None:
     assert args.world_clock == "vago-sync"
 
 
+def test_cli_defaults_to_the_formal_legacy_motor_baseline() -> None:
+    args = build_parser().parse_args(
+        ["mock", "--tap-mode", "direct-motor"]
+    )
+    assert args.motor_body == "legacy"
+
+    tick_args = build_parser().parse_args(
+        ["mock", "--tap-mode", "direct-motor", "--motor-body", "tick-lease"]
+    )
+    assert tick_args.motor_body == "tick-lease"
+
+    formal_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+        ]
+    )
+    assert formal_d.world_clock == "clock-thread"
+    assert formal_d.motor_body == "clock-thread"
+
+    lite_d = build_parser().parse_args(
+        [
+            "mock",
+            "--tap-mode",
+            "direct-motor-lite",
+            "--world-clock",
+            "clock-thread",
+            "--motor-body",
+            "clock-thread",
+            "--lanes",
+            "3",
+        ]
+    )
+    assert lite_d.tap_mode == "direct-motor-lite"
+    assert lite_d.lanes == 3
+
+
 def test_cli_rejects_vago_sync_before_running_a_non_v4_mode() -> None:
     with pytest.raises(SystemExit) as error:
         main(
@@ -33,6 +75,20 @@ def test_cli_rejects_vago_sync_before_running_a_non_v4_mode() -> None:
                 "direct-bit",
                 "--world-clock",
                 "vago-sync",
+            ]
+        )
+    assert error.value.code == 2
+
+
+def test_cli_requires_the_explicit_formal_d_body() -> None:
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                "mock",
+                "--tap-mode",
+                "direct-motor",
+                "--world-clock",
+                "clock-thread",
             ]
         )
     assert error.value.code == 2
@@ -99,8 +155,11 @@ def test_vago_sync_mock_freezes_during_request_and_runs_serially(tmp_path) -> No
     assert summary["ticks"] == 4
     assert summary["configured_lanes"] == 3
     assert summary["effective_lanes"] == 1
-    assert summary["requests_launched"] == 1
-    assert summary["requests_completed"] == 1
+    # The mock selects the one-tick FIRE token. A four-tick simulation
+    # therefore needs four serial requests; effective_lanes=1 means no
+    # overlap, not one request for the entire episode.
+    assert summary["requests_launched"] == summary["target_ticks"]
+    assert summary["requests_completed"] == summary["target_ticks"]
     assert summary["motor_token_preemptions"] == 0
     assert summary["sync_fail_closed_wait_ticks"] == 0
     assert waits and all(event["game_tick_delta"] == 0 for event in waits)

@@ -15,7 +15,10 @@ def test_unpaused_mock_uses_async_player_clock(tmp_path) -> None:
                 pilot=MockReasoningPilot(tap_mode="direct-motor"),
                 run_id="abc123def456",
                 artifacts=artifacts,
-                duration_seconds=0.2,
+                # ASYNC_PLAYER startup can consume well over 500 ms on a busy
+                # Windows host. This test is about native-clock progress, not
+                # startup latency, so leave a stable two-second observation.
+                duration_seconds=2.0,
                 observation_interval=0.05,
                 lanes=3,
                 request_limit=4,
