@@ -283,6 +283,14 @@ formal Dの比較runは追加のGIF用`frame()`読み出しを行わず、summar
 `initialization_ms`、`active_wall_ms`、`simulation_duration_ms`、`effective_tick_hz`を分離する。
 初期化時間やnative clockの低下で条件を満たさないrunは`comparison_valid=false`になる。
 
+同期VAGO flat-4と同じ「全token=4 native tic」を世界継続側で試す場合は、formal Dへ
+`--motor-flat-pulse-ticks 4`を追加する。正式値は録画なしで取り、肉眼確認用GIFだけが必要なら
+`--clock-capture-frames`も追加する。後者は追加screen readを伴うため、summaryは意図的に
+`comparison_valid=false`、`observation_only_frame_capture`と記録する。
+
+同期26.3 killに対する非同期10 runは平均4.0 killだった。条件と全seedは
+[V4 Async × flat-4](docs/experiment-v4-async-flat-4.md)へ記録している。
+
 ゲームへ入る前に6 tokenを一度ずつ問い合わせ、一つでも違えばfail closedします。
 最初の条件文だけのpromptは6問中3問を誤り停止しました。few-shot例へ直した後は、
 10 runすべての起動試験が6 / 6で通過しています。

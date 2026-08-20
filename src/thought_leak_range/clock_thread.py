@@ -113,6 +113,7 @@ class PlayerClockThread:
         seed: int,
         scenario: str,
         motor_token_max_age_ms: int,
+        flat_pulse_ticks: int | None = None,
         tick_hz: float = 35.0,
         capture_frames: bool = False,
     ) -> None:
@@ -130,6 +131,7 @@ class PlayerClockThread:
         self.seed = seed
         self.scenario = scenario
         self.motor_token_max_age_ms = motor_token_max_age_ms
+        self.flat_pulse_ticks = flat_pulse_ticks
         self.tick_hz = tick_hz
         # Reading a second native screen buffer for a GIF is not part of the
         # formal clock.  It can consume enough time to turn a 35 Hz body into
@@ -204,6 +206,7 @@ class PlayerClockThread:
                     run_id=self.decision_mailbox.run_id,
                     maximum_age_ms=self.motor_token_max_age_ms,
                     game_tick_lease=True,
+                    flat_pulse_ticks=self.flat_pulse_ticks,
                 )
                 initial = arena.observe(seq=0)
                 observations.append(initial)

@@ -156,6 +156,7 @@ class MotorTokenArbiter:
         maximum_age_ms: int = 400,
         ticks_per_second: int = 35,
         game_tick_lease: bool = False,
+        flat_pulse_ticks: int | None = None,
     ) -> None:
         if not re.fullmatch(r"[a-z0-9]{6,32}", run_id):
             raise ValueError("run id must be 6-32 lowercase ASCII letters/digits")
@@ -163,10 +164,13 @@ class MotorTokenArbiter:
             raise ValueError("motor-token maximum age must be 50-1000 ms")
         if not 1 <= ticks_per_second <= 1000:
             raise ValueError("ticks per second must be positive")
+        if flat_pulse_ticks is not None and not 1 <= flat_pulse_ticks <= 100:
+            raise ValueError("flat pulse ticks must be between one and 100")
         self.run_id = run_id
         self.maximum_age_ms = maximum_age_ms
         self.ticks_per_second = ticks_per_second
         self.game_tick_lease = game_tick_lease
+        self.flat_pulse_ticks = flat_pulse_ticks
         self.maximum_age_ticks = max(
             1, ceil(maximum_age_ms * ticks_per_second / 1000.0)
         )
@@ -223,10 +227,11 @@ class MotorTokenArbiter:
 
         preempted = self._active.frame if self._active is not None else None
         self.highest_accepted_obs = frame.obs
-        pulse_seconds = (frame.token.pulse_ticks + 1) / self.ticks_per_second
+        pulse_ticks = self._pulse_ticks(frame.token)
+        pulse_seconds = (pulse_ticks + 1) / self.ticks_per_second
         self._active = ActivePulse(
             frame=frame,
-            remaining_ticks=frame.token.pulse_ticks,
+            remaining_ticks=pulse_ticks,
             expires_at=offered_at + pulse_seconds,
         )
         return MotorTokenDecision(True, "fresh_monotonic", frame, preempted)
@@ -299,11 +304,12 @@ class MotorTokenArbiter:
             selected = max(eligible, key=lambda item: item.obs)
             preempted = active.frame if active is not None else None
             self._last_committed_obs = selected.obs
+            pulse_ticks = self._pulse_ticks(selected.token)
             self._active = ActivePulse(
                 frame=selected,
-                remaining_ticks=selected.token.pulse_ticks,
+                remaining_ticks=pulse_ticks,
                 expires_at=inf,
-                expires_at_game_tick=game_tick + selected.token.pulse_ticks,
+                expires_at_game_tick=game_tick + pulse_ticks,
             )
             return MotorTick(
                 action=selected.token.action,
@@ -311,10 +317,13 @@ class MotorTokenArbiter:
                 preempted=preempted,
                 committed=True,
                 superseded_before_commit=len(eligible) - 1,
-                expires_at_game_tick=game_tick + selected.token.pulse_ticks,
+                expires_at_game_tick=game_tick + pulse_ticks,
             )
 
         return self._active_for_game_tick(game_tick)
+
+    def _pulse_ticks(self, token: MotorToken) -> int:
+        return self.flat_pulse_ticks or token.pulse_ticks
 
     def _active_for_game_tick(self, game_tick: int) -> MotorTick | None:
         active = self._active
