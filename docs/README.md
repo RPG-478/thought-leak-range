@@ -1,6 +1,6 @@
 # Documentation map
 
-Thought Leak Range grew by experiment, including the useful failures. This page is the shortest route
+Latency Kills grew by experiment, including the useful failures. This page is the shortest route
 through the resulting paper trail.
 
 ## Start here
@@ -15,6 +15,7 @@ through the resulting paper trail.
 - [V4-S × VAGO flat-4](experiment-v4-s-vago-flat-4.md) — stopped-world diagnostic: 26.3 kill average
 - [Replay archive](replays/README.md) — GIFs grouped by experiment and validity
 - [Public release record](public-release-2026-08-21.md) — what was opened, what stayed private, and the final checks
+- [Rename to Latency Kills](rename-latency-kills-2026-08-21.md) — why the V0 name became a compatibility alias
 
 ## Evolution
 

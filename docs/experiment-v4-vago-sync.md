@@ -53,7 +53,7 @@ temperature 0, the same startup six-token probe, `defend_the_center`, skill 1, s
 Both agents died before the requested 15 seconds. The stopped agent lasted 486 tics and the unpaused
 agent 406 tics. This is one paired seed, not a population estimate.
 
-![V4-S stopped-world replay, seed 12, six kills](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-vago-sync-seed12-6-kills.gif)
+![V4-S stopped-world replay, seed 12, six kills](https://github.com/RPG-478/latency-kills/releases/download/replays-highlights-2026-08-21/v4-vago-sync-seed12-6-kills.gif)
 
 ## The weird part: thinking is free, weapon cooldown is not
 

@@ -43,10 +43,10 @@ upstream commit `b4c3fdf` rather than relying on code reading alone: 0 ms and 65
 policy produced bit-identical RGB and depth trajectories, steps, kills, and HP. See the
 [timing probe](vago-sync-probe.md).
 
-Thought Leak Range chooses the opposite tradeoff: perception and control are initially easier, but the
+Latency Kills chooses the opposite tradeoff: perception and control are initially easier, but the
 world remains live and stale cloud decisions are rejected.
 
-| | Sauerkraut cloud baseline | Thought Leak Range `direct-bit` |
+| | Sauerkraut cloud baseline | Latency Kills `direct-bit` |
 |---|---|---|
 | World during API call | Synchronous / not stepped | Unpaused at 35 Hz |
 | Perception | ASCII plus depth | Structured ViZDoom labels |

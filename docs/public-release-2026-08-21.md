@@ -1,6 +1,6 @@
 # Public release record — 2026-08-21
 
-Thought Leak Rangeをprivateな実験場からpublic repositoryへ開く時点の記録です。
+Latency Killsを、旧名Thought Leak Rangeのprivate実験場からpublic repositoryへ開いた時点の記録です。
 
 ## 開いたもの
 

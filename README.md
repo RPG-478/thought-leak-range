@@ -1,13 +1,16 @@
-# Thought Leak Range
+# Latency Kills
 
 > **「Cloud LLMはFPSには遅すぎる」を、モデルの賢さではなく時計とaction ageに分解して確かめる。**
 
-[![tests](https://github.com/RPG-478/thought-leak-range/actions/workflows/tests.yml/badge.svg)](https://github.com/RPG-478/thought-leak-range/actions/workflows/tests.yml)
+[![tests](https://github.com/RPG-478/latency-kills/actions/workflows/tests.yml/badge.svg)](https://github.com/RPG-478/latency-kills/actions/workflows/tests.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Thought Leak Rangeは、Cloud LLMと小型専用modelを、35 Hzで止まらず動くoffline ViZDoomへ接続する
+Latency Killsは、Cloud LLMと小型専用modelを、35 Hzで止まらず動くoffline ViZDoomへ接続する
 リアルタイム制御実験です。出発点は「LLMのthinkingをそのまま筋肉にしたら面白いのでは？」でしたが、
 現在の主題は**actionが何tick古いとFPS agentは壊れるのか**です。
+
+旧名は`Thought Leak Range`。raw thinkingを射撃へ漏らしたV0の技術名と、互換用Python distribution / CLI
+`thought-leak-range`、module `thought_leak_range`にその痕跡を残しています。
 
 オンラインゲームbotではありません。OSのキーボードやマウス、commercial game、anti-cheatには
 接続せず、ViZDoomのローカル練習scenarioだけをAPI経由で操作します。
@@ -115,7 +118,7 @@ V4では、一つの汎用Cloud LLMがWAIT / LEFT / RIGHT / FIREとpulse長を�
 以下は、Marine認識修正後に取得した、worldを止めないFlat-4版のseed 08です。7 killしましたが、
 GIF録画負荷がgame clockへ影響した**visual-only run**なので、上表のformal scoreには使っていません。
 
-![止まらないCloud V4 Flat-4のvisual-only replay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-async-flat4-2026-08-21/seed-08__kills-07__health-neg02__seconds-14p7__visual-only.gif)
+![止まらないCloud V4 Flat-4のvisual-only replay](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-async-flat4-2026-08-21/seed-08__kills-07__health-neg02__seconds-14p7__visual-only.gif)
 
 *GIF 1 — Cloud V4 / seed 08 / 7 kill / worldは停止しない。録画負荷でclockが乱れたvisual-only映像であり、
 formal平均4.0の計算には含めていない。画面上の操作字幕はCloud LLMが返した一文字を固定変換したもの。*
@@ -134,7 +137,7 @@ target lockを追加しました。修正直後のV4-Sをseed 7〜24で18 episod
 次は修正済みV4-S seed 10の14-kill replayです。これはCloud待機中にworldを止めるcorrectness診断で、
 リアルタイム性能ではありません。
 
-![MarineChainsawVzd認識修正後のV4-S seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
+![MarineChainsawVzd認識修正後のV4-S seed 10](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
 
 *GIF 2 — Marine認識修正後のV4-S / seed 10 / 14 kill・14 hit / 525 tic完走。Cloud待機中は敵も時計も
 停止するため、これはLLM＋Systemの対応を調べる映像であり、リアルタイム性能の証拠ではない。*
@@ -202,8 +205,8 @@ latest-onlyで置換し、前actionは4 ticで必ず失効します。200 ms実�
 Python 3.12と[uv](https://docs.astral.sh/uv/)を使います。
 
 ~~~powershell
-git clone https://github.com/RPG-478/thought-leak-range.git
-cd thought-leak-range
+git clone https://github.com/RPG-478/latency-kills.git
+cd latency-kills
 uv sync --extra dev --locked --python 3.12
 uv run python -m thought_leak_range mock --duration 6
 ~~~
@@ -326,7 +329,7 @@ CIはUbuntu / Windows、Python 3.12で実行します。
 
 ## Licenseとupstream
 
-Thought Leak Range自身は[MIT License](LICENSE)です。
+Latency Kills自身は[MIT License](LICENSE)です。
 
 VAGOの[Hugging Face model card](https://huggingface.co/VAGOsolutions/SauerkrautLM-Doom-MultiVec-1.3M)は
 Apache-2.0を表示しています。一方、2026-08-21確認時点で

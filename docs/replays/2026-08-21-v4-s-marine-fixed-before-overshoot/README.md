@@ -80,72 +80,72 @@ overshoot対策へ進む前に、人間がGIFで次を確認し、2026-08-21に�
 
 ### Seed 07 — 13 kill / health 100 / complete
 
-![seed 07](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-07__kills-13__hits-13__health-100__ticks-525__complete.gif)
+![seed 07](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-07__kills-13__hits-13__health-100__ticks-525__complete.gif)
 
 ### Seed 08 — 12 kill / health 90 / complete
 
-![seed 08](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-08__kills-12__hits-12__health-90__ticks-525__complete.gif)
+![seed 08](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-08__kills-12__hits-12__health-90__ticks-525__complete.gif)
 
 ### Seed 09 — 13 kill / health 100 / complete
 
-![seed 09](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-09__kills-13__hits-13__health-100__ticks-525__complete.gif)
+![seed 09](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-09__kills-13__hits-13__health-100__ticks-525__complete.gif)
 
 ### Seed 10 — 14 kill / health 100 / complete
 
-![seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
+![seed 10](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
 
 ### Seed 11 — 10 kill / health 100 / complete
 
-![seed 11](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-11__kills-10__hits-10__health-100__ticks-525__complete.gif)
+![seed 11](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-11__kills-10__hits-10__health-100__ticks-525__complete.gif)
 
 ### Seed 12 — 11 kill / health 80 / complete
 
-![seed 12](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-12__kills-11__hits-11__health-80__ticks-525__complete.gif)
+![seed 12](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-12__kills-11__hits-11__health-80__ticks-525__complete.gif)
 
 ### Seed 13 — 14 kill / health 84 / complete
 
-![seed 13](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-13__kills-14__hits-14__health-84__ticks-525__complete.gif)
+![seed 13](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-13__kills-14__hits-14__health-84__ticks-525__complete.gif)
 
 ### Seed 14 — 13 kill / health 84 / complete
 
-![seed 14](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-14__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![seed 14](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-14__kills-13__hits-13__health-84__ticks-525__complete.gif)
 
 ### Seed 15 — 13 kill / health 84 / complete
 
-![seed 15](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-15__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![seed 15](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-15__kills-13__hits-13__health-84__ticks-525__complete.gif)
 
 ### Seed 16 — 12 kill / health 100 / complete
 
-![seed 16](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-16__kills-12__hits-12__health-100__ticks-525__complete.gif)
+![seed 16](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-16__kills-12__hits-12__health-100__ticks-525__complete.gif)
 
 ### Seed 17 — 12 kill / health 92 / complete
 
-![seed 17](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-17__kills-12__hits-12__health-92__ticks-525__complete.gif)
+![seed 17](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-17__kills-12__hits-12__health-92__ticks-525__complete.gif)
 
 ### Seed 18 — 5 kill / health 14 / request limit
 
-![seed 18 request limit](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-18__kills-05__hits-05__health-14__ticks-464__request_limit.gif)
+![seed 18 request limit](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-18__kills-05__hits-05__health-14__ticks-464__request_limit.gif)
 
 ### Seed 19 — 9 kill / health 46 / complete
 
-![seed 19](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-19__kills-09__hits-09__health-46__ticks-525__complete.gif)
+![seed 19](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-19__kills-09__hits-09__health-46__ticks-525__complete.gif)
 
 ### Seed 20 — 13 kill / health 84 / complete
 
-![seed 20](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-20__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![seed 20](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-20__kills-13__hits-13__health-84__ticks-525__complete.gif)
 
 ### Seed 21 — 13 kill / health 84 / complete
 
-![seed 21](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-21__kills-13__hits-13__health-84__ticks-525__complete.gif)
+![seed 21](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-21__kills-13__hits-13__health-84__ticks-525__complete.gif)
 
 ### Seed 22 — 14 kill / health 84 / complete
 
-![seed 22](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-22__kills-14__hits-14__health-84__ticks-525__complete.gif)
+![seed 22](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-22__kills-14__hits-14__health-84__ticks-525__complete.gif)
 
 ### Seed 23 — 14 kill / health 72 / complete
 
-![seed 23](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-23__kills-14__hits-14__health-72__ticks-525__complete.gif)
+![seed 23](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-23__kills-14__hits-14__health-72__ticks-525__complete.gif)
 
 ### Seed 24 — 10 kill / health 24 / complete
 
-![seed 24](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-24__kills-10__hits-10__health-24__ticks-525__complete.gif)
+![seed 24](https://github.com/RPG-478/latency-kills/releases/download/replays-v4-s-marine-2026-08-21/seed-24__kills-10__hits-10__health-24__ticks-525__complete.gif)
