@@ -96,10 +96,13 @@ geometry stay true until execution.
 
 Important correction: the historical stopped run above did **not** recognize or kill the Freedoom
 `MarineChainsawVzd` actor. Its six kills came only from enemies that passed the old name filter. The
-current worktree recognizes `MarineChainsawVzd` by name and Monster category, but V4-S has not yet been
-remeasured with that fix. A score beyond ten kills is therefore only a testable hypothesis, not a result.
-Such a result would still describe a paused-world controller, not aiming performance in a continuously
-moving 35 Hz world.
+worktree was then updated to recognize `MarineChainsawVzd` by name and Monster category. At the time of
+this historical pair it had not yet been remeasured. The later 18-episode follow-up did perform that
+measurement: 215 total kills, 11.94 average, and at least 146 kills attributed to FIRE against the Marine.
+It also exposed premature FIRE and a 39.7% physical-shot hit rate against that actor. See the
+[Marine recognition repair baseline](replays/2026-08-21-v4-s-marine-fixed-before-overshoot/README.md).
+Those numbers still describe a paused-world controller, not aiming performance in a continuously moving
+35 Hz world.
 
 ## Proposed role: V4-S as the controller oracle
 
