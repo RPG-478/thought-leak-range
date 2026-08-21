@@ -1,5 +1,9 @@
 # 非同期V4 vs VAGO MultiVec 1.3M
 
+> **更新:** この文書はVAGO公式の停止世界runnerをCPUで再現した旧比較である。
+> その後、Colab T4上で世界を35 Hzのまま進める1.3M runnerを実行し、平均17.7 killを得た。
+> 最新の三者比較は[止まるV4、止まらないV4、止まらない1.3M](experiment-v4-vago-three-way.md)を参照。
+
 ## 結論
 
 同梱weightsをこちらのPCで10 episode再実行すると、VAGO MultiVec 1.3Mは
