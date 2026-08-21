@@ -37,5 +37,10 @@ This is a tooling failure record, not a claim that an automated scan passed.
 Replay GIFs are migrated to GitHub Release assets. Documentation keeps direct per-episode image links,
 while the private Git history is rewritten before publication to remove the old 228 MiB blob archive.
 
+GitHub retains read-only refs for closed pull requests. `refs/pull/1/head` and `refs/pull/2/head` can still
+reach the pre-migration GIF blobs even after their source branches are deleted. Those blobs are replay GIFs
+already intentionally public in Releases; a post-public scan found no credential or personal path in either
+PR tree. The default branch/tag graph has a 122,261-byte largest blob, so normal clones remain small.
+
 The pre-rewrite repository bundle and SHA-256 GIF manifest remain offline under the workspace artifact
 directory; they are not published with the repository.
