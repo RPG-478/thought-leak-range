@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "thought-leak-range"
 version = "0.1.0"
-description = "Let streamed LLM reasoning leak into a safe offline ViZDoom body."
+description = "Measure how action staleness breaks Cloud LLM and tiny-model control in offline ViZDoom."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/RPG-478/thought-leak-range"
-Documentation = "https://github.com/RPG-478/thought-leak-range/tree/main/docs"
+Repository = "https://github.com/RPG-478/latency-kills"
+Documentation = "https://github.com/RPG-478/latency-kills/tree/main/docs"
 
 [project.optional-dependencies]
 dev = [

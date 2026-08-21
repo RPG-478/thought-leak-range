@@ -2,7 +2,7 @@
 
 ## Scope
 
-Thought Leak Range is an offline ViZDoom research prototype. It sends prompts to OpenRouter only in
+Latency Kills is an offline ViZDoom research prototype. It sends prompts to OpenRouter only in
 the explicit `live` mode. It does not generate native keyboard or mouse input and is not intended for
 commercial games, anti-cheat environments, or untrusted remote control.
 

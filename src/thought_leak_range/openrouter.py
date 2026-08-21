@@ -180,7 +180,7 @@ class OpenRouterReasoningClient:
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
-                "X-Title": "Thought Leak Range",
+                "X-Title": "Latency Kills",
             },
         )
 
