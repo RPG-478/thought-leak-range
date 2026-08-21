@@ -31,6 +31,11 @@ Thought Leak Rangeをprivateな実験場からpublic repositoryへ開く時点�
 最終版はupstream checkoutを動的に呼ぶ薄いadapterへ変更済みですが、公開前に実験branchを最終tree一発の
 clean commitへ畳み、licenseが不明な途中実装をpublic historyへ残さない方針にしました。
 
+公開後の匿名HTTP確認でREADMEとRelease GIFはいずれも200を返しました。一方、GitHubはsource branchを
+削除しても閉じたPRのread-only refを保持するため、PR #1 / #2から移行前のGIF blobへは到達できます。
+そこも追加scanし、秘密値や個人pathは0件でした。映像自体はもともと全公開対象です。通常のbranch / tag graphは
+最大blob 122,261 bytesで、普通にcloneする人へ228 MiBを背負わせない目的は維持できています。
+
 ## 公開時点の主結果
 
 | 条件 | 平均kill |
