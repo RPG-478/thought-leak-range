@@ -37,6 +37,22 @@ Thought Leak Rangeは、Cloud LLMと小型専用modelを、35 Hzで止まらず�
 | Nemotron-120B | 120B | 5 | 8.9 s | 3 |
 | Qwen3.5-27B | 27B | 3 | 13.3 s | 2 |
 
+*表1 — VAGO原論文Table 2の報告値。episode数がmodelごとに異なるため、total fragsだけを横並びにして
+「同条件の平均score」とは扱わない。*
+
+### このREADMEで使う言葉
+
+| 言葉 | ここでの意味 |
+|---|---|
+| episode | ゲーム開始から死亡または制限時間までの1試行 |
+| frag / kill | score上で敵1体分を倒したこと。monster同士の攻撃が加算される場合もあるため、実験ではhitやammoも併記 |
+| game tic | ViZDoom内部時間の1刻み。35 Hz設定では約28.6 ms |
+| action age | 画面を観測してから、その観測に基づく操作が実行されるまでの古さ |
+| stopped / V4-S | Cloud返答待ちの間、ViZDoom内部時間も敵も停止する診断条件 |
+| unpaused / 非同期 | modelの推論中もViZDoomが35 Hzで進み続ける条件 |
+| formal run | score集計用の正式測定。録画負荷などで時計を乱さない |
+| visual-only run | 挙動を目で確認するGIF用run。正式scoreには混ぜない |
+
 つまり原論文の結論は明快です。**リアルタイム制御では、巨大な汎用LLMより、速くて小さい専用modelが
 圧倒的に強い。** 本repositoryもこの勝敗自体には反論しません。実際、1.3M modelを止まらない世界へ
 載せ直して、論文の17.8 frags/episodeに対して17.7を再現しました。
@@ -72,6 +88,9 @@ API待機中も世界が進む条件と、古いactionが身体へ届く条件�
 | VAGO MultiVec 1.3M / T4 | 35 Hz継続 | 28.1 ms、1.049 tic | **177 / 17.7** |
 | 同じVAGO 1.3M + 200 ms floor | 35 Hz継続 | 7.038 tic | **42 / 4.2** |
 
+*表2 — seed 7〜16の10 episode比較。停止Cloudの26.3は診断上限、残り3条件はworldが進み続ける。
+Cloud V4とVAGOは入力・学習・action空間が違うため、4.0対17.7をmodel知能の直接対決とは扱わない。*
+
 最初の行はworldを止めるdiagnostic上限であり、リアルタイムscoreではありません。1.3M modelは、
 止まらない世界でもVAGO公開値17.8に対して17.7を再現しました。ところがmodel、weights、入力、
 action policyを変えず、action到着だけを最低200 msへ遅らせると17.7から4.2へ76.3%低下。
@@ -98,6 +117,9 @@ GIF録画負荷がgame clockへ影響した**visual-only run**なので、上表
 
 ![止まらないCloud V4 Flat-4のvisual-only replay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-async-flat4-2026-08-21/seed-08__kills-07__health-neg02__seconds-14p7__visual-only.gif)
 
+*GIF 1 — Cloud V4 / seed 08 / 7 kill / worldは停止しない。録画負荷でclockが乱れたvisual-only映像であり、
+formal平均4.0の計算には含めていない。画面上の操作字幕はCloud LLMが返した一文字を固定変換したもの。*
+
 ### 途中で「チェーンソー男がLLMへ渡っていない」事故があった
 
 以前ここに掲載していたV4 / V4-SのGIFは、現在版の代表映像として不適切でした。Freedoomの
@@ -113,6 +135,9 @@ target lockを追加しました。修正直後のV4-Sをseed 7〜24で18 episod
 リアルタイム性能ではありません。
 
 ![MarineChainsawVzd認識修正後のV4-S seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
+
+*GIF 2 — Marine認識修正後のV4-S / seed 10 / 14 kill・14 hit / 525 tic完走。Cloud待機中は敵も時計も
+停止するため、これはLLM＋Systemの対応を調べる映像であり、リアルタイム性能の証拠ではない。*
 
 ただし、修正後も「LLM＋Systemが完全に正しい」とは判定できませんでした。Marineが照準より少し右に
 いる段階でFIREを繰り返し、敵が横移動または接近して当たり判定へ入った時に倒す場面が多く、
