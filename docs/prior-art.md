@@ -4,9 +4,11 @@ This project is not the first attempt to make an LLM play DOOM or ViZDoom.
 
 ## Direct precedent: cloud LLMs in ViZDoom
 
-The 2026 open-source project
-[SauerkrautLM-Doom-MultiVec](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)
-benchmarks cloud LLMs directly in ViZDoom's `defend_the_center` scenario. Its main contribution is a
+The 2026 arXiv preprint
+[Playing DOOM with 1.3M Parameters: Specialized Small Models vs Large Language Models for Real-Time Game Control](https://arxiv.org/abs/2604.07385)
+and its public implementation,
+[SauerkrautLM-Doom-MultiVec](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec),
+benchmark cloud LLMs directly in ViZDoom's `defend_the_center` scenario. The paper's main contribution is a
 1.3M-parameter specialized model, but its baselines are highly relevant here.
 
 All agents receive a 40x25 ASCII view plus a quantized depth map and choose among `shoot`,

@@ -1,53 +1,124 @@
 # Thought Leak Range
 
-> **VizDoomをCloud LLMにやらせた。世界を止めず、一文字で探索・旋回・発砲まで選ばせる。**
+> **「Cloud LLMはFPSには遅すぎる」を、モデルの賢さではなく時計とaction ageに分解して確かめる。**
 
 [![tests](https://github.com/RPG-478/thought-leak-range/actions/workflows/tests.yml/badge.svg)](https://github.com/RPG-478/thought-leak-range/actions/workflows/tests.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Thought Leak Rangeは、Cloud LLMのstreaming出力を35 Hzで動き続けるoffline ViZDoomへ接続する
-リアルタイム制御実験です。最初は「LLMのthinkingをそのまま筋肉にしたら面白いのでは？」から始まり、
-現在は**actionが何tick古いとFPS agentは壊れるのか**を測る実験装置になっています。
+Thought Leak Rangeは、Cloud LLMと小型専用modelを、35 Hzで止まらず動くoffline ViZDoomへ接続する
+リアルタイム制御実験です。出発点は「LLMのthinkingをそのまま筋肉にしたら面白いのでは？」でしたが、
+現在の主題は**actionが何tick古いとFPS agentは壊れるのか**です。
 
 オンラインゲームbotではありません。OSのキーボードやマウス、commercial game、anti-cheatには
 接続せず、ViZDoomのローカル練習scenarioだけをAPI経由で操作します。
 
-## 一番面白かった結果
+## 出発点: VAGOの1.3M DOOM agent
 
-同じseed 7〜16、止まらない35 Hz世界で、VAGOの1.3M専用modelへaction latencyだけを加えました。
+このrepositoryが追試する出発点は、VAGO Solutionsらの2026年のarXiv preprint
+[Playing DOOM with 1.3M Parameters: Specialized Small Models vs Large Language Models for Real-Time Game Control](https://arxiv.org/abs/2604.07385)
+です。著者はDavid Golchinfar、Daryoush Vaziri、Alexander Marquardt。
+公開modelは[SauerkrautLM-Doom-MultiVec-1.3M](https://huggingface.co/VAGOsolutions/SauerkrautLM-Doom-MultiVec-1.3M)、
+実装は[GitHub](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)にあります。
+
+この研究は、ViZDoomの`defend_the_center`を次の方法で解きます。
+
+- 画面を40×25のASCIIへ変換し、16段階のdepth情報を加える
+- 31,645 frameのhuman demonstrationで、4 actionを選ぶ専用classifierを学習する
+- 5-layer ModernBERT-Hash＋attention poolingで、総parameter数を約1.3Mに抑える
+- `shoot` / `move_forward` / `turn_left` / `turn_right`をmulti-labelで選ぶ
+
+原論文の主結果は次の通りです。これは本repositoryの測定値ではなく、VAGO論文Table 2の報告値です。
+
+| VAGO論文のagent | parameters | episodes | latency / decision | total frags |
+|---|---:|---:|---:|---:|
+| **SauerkrautLM-Doom-MultiVec** | **1.3M** | 10 | **31 ms** | **178** |
+| GPT-4o-mini | proprietary | 10 | 646 ms | 0 |
+| Gemini Flash Lite | proprietary | 10 | 920 ms | 8 |
+| Nemotron-120B | 120B | 5 | 8.9 s | 3 |
+| Qwen3.5-27B | 27B | 3 | 13.3 s | 2 |
+
+つまり原論文の結論は明快です。**リアルタイム制御では、巨大な汎用LLMより、速くて小さい専用modelが
+圧倒的に強い。** 本repositoryもこの勝敗自体には反論しません。実際、1.3M modelを止まらない世界へ
+載せ直して、論文の17.8 frags/episodeに対して17.7を再現しました。
+
+## では、何を調べ直したのか
+
+VAGOの公開benchmark loopは、観測後にmodel/APIの返答を待ち、その後`make_action()`でViZDoomを
+進める同期構造です。Cloud APIを待っているwall-clock時間中、game tickは進みません。これは実装を読んだ
+だけでなく、同じpolicyへ0 ms / 650 msの待ち時間を入れ、RGB・depth・step・kill・HP trajectoryが
+bit-identicalになることでも確認しました。詳細は[VAGO timing probe](docs/vago-sync-probe.md)にあります。
+
+これはVAGOの1.3M modelが弱いという話ではありません。31 msなら世界を止めなくても十分に速いはずです。
+一方、Cloud LLMの646 ms〜13.3 sというlatencyを「real-time game controlの失敗原因」として読むなら、
+API待機中も世界が進む条件と、古いactionが身体へ届く条件を分けて測る必要があります。
+
+そこで本repositoryでは、次の三つを作りました。
+
+1. ViZDoomをmodel推論と独立した35 Hz threadで動かす、止まらないVAGO adapter
+2. 一つのCloud LLMが一文字でWAIT / LEFT / RIGHT / FIREを直接選ぶCloud V4
+3. 同じVAGO 1.3Mのaction到着だけを200 msへ遅らせるlatency ablation
+
+調べたいのは「どちらのmodelが賢いか」ではなく、**同じ判断が何native tic古くなった時に使い物に
+ならなくなるか**です。
+
+## 今回得られた結果
+
+同じseed 7〜16で、時計とaction latencyを明示して比較しました。
 
 | 条件 | 推論中のworld | 観測からactionまで | kill合計 / 平均 |
 |---|---|---:|---:|
 | Cloud V4-S / Llama 3.1 8B | **停止** | 214.2 msのwall time | **263 / 26.3** |
 | Cloud V4 / 同じLLM | 35 Hz継続 | 232.8 ms、約8 tic | **40 / 4.0** |
 | VAGO MultiVec 1.3M / T4 | 35 Hz継続 | 28.1 ms、1.049 tic | **177 / 17.7** |
-| 同じ1.3M + 200 ms floor | 35 Hz継続 | 7.038 tic | **42 / 4.2** |
+| 同じVAGO 1.3M + 200 ms floor | 35 Hz継続 | 7.038 tic | **42 / 4.2** |
 
-1.3M modelは、止まらない世界でも公開値17.8に対して17.7を再現しました。ところがmodel、weights、
-入力、action policyを一切変えず、action到着だけを最低200 msへ遅らせると17.7から4.2へ76.3%低下。
-Cloud V4の4.0とほぼ同じscore帯へ着地しました。
+最初の行はworldを止めるdiagnostic上限であり、リアルタイムscoreではありません。1.3M modelは、
+止まらない世界でもVAGO公開値17.8に対して17.7を再現しました。ところがmodel、weights、入力、
+action policyを変えず、action到着だけを最低200 msへ遅らせると17.7から4.2へ76.3%低下。
+別設計のCloud V4が出した4.0とほぼ同じscore帯へ着地しました。
 
 > **1.3Mの専用脳から賢さを奪わず、反射神経だけCloud並みにしたら、戦績までCloud並みになった。**
 
-これは「両modelの知能が同じ」という意味ではありません。現在の仮説は、リアルタイムAgentの能力を
-parameter数や平均推論msだけでなく、**何native tic前の観測を操作しているか**で測るべき、というものです。
+これは「両modelの知能が同じ」、あるいは「Cloud V4がVAGOに勝った」という意味ではありません。
+むしろVAGOの勝利を再現した上で、勝敗を説明する主要因の一つとしてaction stalenessを切り出した結果です。
+現在の仮説は、リアルタイムAgentの能力をparameter数や平均推論msだけでなく、
+**何native tic前の観測を操作しているか**でも測るべき、というものです。
 
 - [四条件の詳細](docs/experiment-v4-vago-three-way.md)
 - [200 ms latency ablation](docs/experiment-vago-1.3m-200ms-latency.md)
 - [論文計画: Action Staleness](docs/paper-plan-action-staleness.md)
 - [raw result JSON](docs/results/)
+- [VAGO原論文と他の先行研究](docs/prior-art.md)
 
 ## 動いているところ
 
 V4では、一つの汎用Cloud LLMがWAIT / LEFT / RIGHT / FIREとpulse長を一文字で直接選びます。
-このseed 12は5 hit / 5 KILLCOUNT。字幕のMOTOR操作がLLMから届いた一文字です。
+以下は、Marine認識修正後に取得した、worldを止めないFlat-4版のseed 08です。7 killしましたが、
+GIF録画負荷がgame clockへ影響した**visual-only run**なので、上表のformal scoreには使っていません。
 
-![Cloud LLMが一文字でViZDoomを操作して5体倒すreplay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-direct-motor-seed12-5-kills.gif)
+![止まらないCloud V4 Flat-4のvisual-only replay](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-async-flat4-2026-08-21/seed-08__kills-07__health-neg02__seconds-14p7__visual-only.gif)
 
-停止世界のV4-Sでは、同じCloud policyが6体倒します。ただしCloud待機中は敵も時計も止まるため、
-これはリアルタイムscoreではなく、System＋LLMの診断上限です。
+### 途中で「チェーンソー男がLLMへ渡っていない」事故があった
 
-![停止世界のCloud V4-S](https://github.com/RPG-478/thought-leak-range/releases/download/replays-highlights-2026-08-21/v4-vago-sync-seed12-6-kills.gif)
+以前ここに掲載していたV4 / V4-SのGIFは、現在版の代表映像として不適切でした。Freedoomの
+チェーンソー兵は`MarineChainsawVzd`というactorですが、古い観測filterがその名前をmonsterとして
+認識せず、座標をLLMへ渡していませんでした。LLMは見えている敵を無視したのではなく、prompt上では
+その敵が存在していなかった、というsensor bugです。
+
+修正では`MarineChainsawVzd`の互換名とViZDoomのMonster categoryを認識し、同時に一体だけを見る
+target lockを追加しました。修正直後のV4-Sをseed 7〜24で18 episode走らせると、215 kill、平均11.94。
+ログ上でもMarineを観測し、少なくとも146 killをMarineへのFIREへ帰属できました。
+
+次は修正済みV4-S seed 10の14-kill replayです。これはCloud待機中にworldを止めるcorrectness診断で、
+リアルタイム性能ではありません。
+
+![MarineChainsawVzd認識修正後のV4-S seed 10](https://github.com/RPG-478/thought-leak-range/releases/download/replays-v4-s-marine-2026-08-21/seed-10__kills-14__hits-14__health-100__ticks-525__complete.gif)
+
+ただし、修正後も「LLM＋Systemが完全に正しい」とは判定できませんでした。Marineが照準より少し右に
+いる段階でFIREを繰り返し、敵が横移動または接近して当たり判定へ入った時に倒す場面が多く、
+Marineへの実弾命中率は39.7%でした。つまり認識漏れは直った一方、早すぎるFIREと照準誤差は別問題として
+残っています。詳細と18本すべてのGIFは
+[Marine recognition repair baseline](docs/replays/2026-08-21-v4-s-marine-fixed-before-overshoot/README.md)にあります。
 
 [全replayとformal / visual-onlyの区別](docs/replays/README.md)も公開しています。GIFはrepository本体を
 肥大化させないよう、実験別GitHub Releasesへ置いています。
@@ -232,10 +303,12 @@ CIはUbuntu / Windows、Python 3.12で実行します。
 
 Thought Leak Range自身は[MIT License](LICENSE)です。
 
-[VAGOsolutions/SauerkrautLM-Doom-MultiVec](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)は
-2026-08-21確認時点で明示的なlicense fileがありません。このrepositoryはそのweights、source、action policyを
-再配布せず、ユーザーが別途用意したcheckoutを動的に読み込むadapterだけを提供します。upstreamの利用条件は
-upstream作者へ確認してください。
+VAGOの[Hugging Face model card](https://huggingface.co/VAGOsolutions/SauerkrautLM-Doom-MultiVec-1.3M)は
+Apache-2.0を表示しています。一方、2026-08-21確認時点で
+[GitHub source repository](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)自体には`LICENSE` fileがなく、
+GitHub API上のlicenseも未判定です。本repositoryはupstreamのweights、source、action policyを再配布せず、
+ユーザーが別途用意したcheckoutを動的に読み込むadapterだけを提供します。sourceを利用する場合は
+upstreamの最新表記を確認してください。
 
 ---
 
