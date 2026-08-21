@@ -6,11 +6,15 @@ through the resulting paper trail.
 ## Start here
 
 - [V4 direct motor](v4-direct-motor.md) — the one-character Cloud LLM motor protocol
+- [Stopped V4, unpaused V4, unpaused VAGO 1.3M](experiment-v4-vago-three-way.md) — paired three-way result: 26.3 / 4.0 / 17.7 kills
+- [Slow the 1.3M policy to 200 ms](experiment-vago-1.3m-200ms-latency.md) — latency alone drops it from 17.7 to 4.2 kills
+- [Paper plan: action staleness](paper-plan-action-staleness.md) — hypothesis, contribution boundary, and the experiments still required
 - [Prior art and fairness boundary](prior-art.md) — what this rebuts and what it does not
 - [V4 Async × flat-4](experiment-v4-async-flat-4.md) — current unpaused result: 4.0 kill average
-- [V4 Async versus VAGO MultiVec 1.3M](experiment-v4-async-vs-vago-1.3m.md) — local reproduction: 15.6 versus 4.0 kills, with clock caveats
+- [V4 Async versus VAGO MultiVec 1.3M](experiment-v4-async-vs-vago-1.3m.md) — older stopped-world CPU reproduction: 15.6 versus 4.0 kills
 - [V4-S × VAGO flat-4](experiment-v4-s-vago-flat-4.md) — stopped-world diagnostic: 26.3 kill average
 - [Replay archive](replays/README.md) — GIFs grouped by experiment and validity
+- [Public release record](public-release-2026-08-21.md) — what was opened, what stayed private, and the final checks
 
 ## Evolution
 
