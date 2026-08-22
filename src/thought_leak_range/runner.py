@@ -36,6 +36,7 @@ from .motor_token import (
     MotorTokenParser,
 )
 from .openrouter import BudgetExceeded, OpenRouterReasoningClient, StreamResult
+from .remote_lanes import RemoteLanePoolClient
 from .protocol import (
     Action,
     DirectBitParser,
@@ -408,6 +409,45 @@ class OpenRouterPilot:
                 }
                 or self.direct_bit_reasoning
             ),
+        )
+
+
+class RemoteLanePilot:
+    """Drive the same V4 policy through one persistent connection per GPU."""
+
+    def __init__(
+        self,
+        client: RemoteLanePoolClient,
+        *,
+        tap_mode: str = "direct-motor",
+    ) -> None:
+        if tap_mode != "direct-motor":
+            raise ValueError("remote GPU lanes currently support direct-motor only")
+        self.client = client
+        self.tap_mode = tap_mode
+
+    async def think(
+        self,
+        *,
+        observation: Observation,
+        run_id: str,
+        on_reasoning,
+        on_visible,
+        specialist: Action | None = None,
+        blackboard: str = "",
+    ) -> StreamResult:
+        if specialist is not None or blackboard:
+            raise ValueError("remote GPU lanes do not support council requests")
+        messages = _motor_messages(
+            observation=observation,
+            run_id=run_id,
+            tap_mode=self.tap_mode,
+        )
+        return await self.client.stream_motor(
+            observation_text=messages[-1]["content"],
+            run_id=run_id,
+            observation_seq=observation.seq,
+            on_visible=on_visible,
         )
 
 

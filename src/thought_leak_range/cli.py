@@ -16,10 +16,17 @@ from .openrouter import (
 from .runner import (
     MockReasoningPilot,
     OpenRouterPilot,
+    RemoteLanePilot,
     RunArtifacts,
     make_run_id,
     probe_raw_reasoning,
     run_practice_range,
+)
+from .remote_lanes import (
+    DEFAULT_LANE_ENV,
+    RemoteLaneFailure,
+    RemoteLanePoolClient,
+    load_remote_lane_configs,
 )
 
 
@@ -107,6 +114,37 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         default="fire",
         help="synthetic decision case used by the startup probe",
+    )
+
+    remote = subparsers.add_parser(
+        "remote-live",
+        help="run V4 through one persistent connection per remote GPU lane",
+    )
+    _add_range_arguments(remote, default_requests=180)
+    remote.set_defaults(tap_mode="direct-motor")
+    remote.add_argument(
+        "--lane-config",
+        type=Path,
+        help=(
+            "ignored JSON file containing ephemeral remote endpoints; "
+            f"otherwise read {DEFAULT_LANE_ENV}"
+        ),
+    )
+    remote.add_argument(
+        "--lane-env",
+        default=DEFAULT_LANE_ENV,
+        help="environment variable containing remote lane JSON",
+    )
+    remote.add_argument(
+        "--remote-timeout",
+        type=_positive_float,
+        default=15.0,
+        help="per-request timeout for a remote GPU lane",
+    )
+    remote.add_argument(
+        "--probe-only",
+        action="store_true",
+        help="validate all V4 motor cases without opening ViZDoom",
     )
     return parser
 
@@ -284,8 +322,11 @@ def main(argv: list[str] | None = None) -> None:
                         f"{args.tap_mode} live needs at least "
                         f"{minimum_requests} requests for probe + game"
                     )
-            result = asyncio.run(_run_live(args))
-    except (ValueError, RuntimeError, BudgetExceeded) as error:
+            if args.command == "live":
+                result = asyncio.run(_run_live(args))
+            else:
+                result = asyncio.run(_run_remote(args))
+    except (ValueError, RuntimeError, BudgetExceeded, RemoteLaneFailure) as error:
         parser.exit(2, f"thought-leak-range: {error}\n")
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
@@ -471,6 +512,130 @@ async def _run_live(args: argparse.Namespace) -> dict[str, object]:
             "probe": _probe_dict(probe),
             "range": range_summary,
             "budget": budget.snapshot(),
+        }
+        artifacts.write_summary(result)
+        return result
+    finally:
+        await client.aclose()
+        artifacts.close()
+
+
+async def _run_remote(args: argparse.Namespace) -> dict[str, object]:
+    configs = load_remote_lane_configs(
+        config_file=args.lane_config,
+        env_name=args.lane_env,
+    )
+    if args.tap_mode != "direct-motor":
+        raise ValueError("remote-live currently requires --tap-mode direct-motor")
+    if args.lanes != len(configs):
+        raise ValueError(
+            f"--lanes is {args.lanes}, but the remote configuration contains "
+            f"{len(configs)} endpoints; use exactly one endpoint per lane"
+        )
+
+    run_id = make_run_id()
+    artifacts = RunArtifacts(
+        base_dir=args.artifact_dir,
+        run_id=run_id,
+        save_thoughts=args.save_thoughts,
+    )
+    client = RemoteLanePoolClient(
+        configs,
+        timeout_seconds=args.remote_timeout,
+    )
+    pilot = RemoteLanePilot(client, tap_mode=args.tap_mode)
+    try:
+        warmup_started = asyncio.get_running_loop().time()
+        health = await client.warmup()
+        warmup_ms = (asyncio.get_running_loop().time() - warmup_started) * 1000.0
+        artifacts.event(
+            "remote_lanes_ready",
+            latency_ms=warmup_ms,
+            lane_count=len(configs),
+            lanes=health,
+        )
+        probe = await probe_raw_reasoning(
+            pilot=pilot,
+            run_id=run_id,
+            artifacts=artifacts,
+            show_thoughts=args.show_thoughts,
+            tap_mode=args.tap_mode,
+            probe_case="fire",
+        )
+        if not probe.passed:
+            failure = {
+                "mode": "remote-live",
+                "status": "probe_failed_closed",
+                "world_clock": args.world_clock,
+                "artifacts": str(artifacts.directory),
+                "warmup_ms": warmup_ms,
+                "remote_health": health,
+                "probe": _probe_dict(probe),
+                "remote": client.snapshot(),
+            }
+            artifacts.write_summary(failure)
+            raise RuntimeError(
+                "the remote Llama policy failed the V4 semantic probe; "
+                "no game control granted"
+            )
+
+        if args.probe_only:
+            result = {
+                "mode": "remote-live",
+                "status": "probe_completed",
+                "tap_mode": args.tap_mode,
+                "world_clock": args.world_clock,
+                "artifacts": str(artifacts.directory),
+                "warmup_ms": warmup_ms,
+                "remote_health": health,
+                "probe": _probe_dict(probe),
+                "remote": client.snapshot(),
+            }
+            artifacts.write_summary(result)
+            return result
+
+        range_summary = await run_practice_range(
+            pilot=pilot,
+            run_id=run_id,
+            artifacts=artifacts,
+            duration_seconds=args.duration,
+            observation_interval=args.observation_interval,
+            lanes=args.lanes,
+            request_limit=args.max_requests,
+            visible=args.visible,
+            seed=args.seed,
+            show_thoughts=args.show_thoughts,
+            tap_mode=args.tap_mode,
+            scenario=args.scenario,
+            world_clock=args.world_clock,
+            motor_body=args.motor_body,
+            direct_max_age_ms=args.direct_max_age_ms,
+            direct_aim_assist=args.direct_aim_assist,
+            council_movement_ttl_ms=args.council_movement_ttl_ms,
+            council_fire_max_age_ms=args.council_fire_max_age_ms,
+            motor_token_max_age_ms=args.motor_token_max_age_ms,
+            vago_frame_skip=args.vago_frame_skip,
+            vago_flat_pulse=args.vago_flat_pulse,
+            motor_flat_pulse_ticks=args.motor_flat_pulse_ticks,
+            clock_capture_frames=args.clock_capture_frames,
+        )
+        result = {
+            "mode": "remote-live",
+            "status": "completed",
+            "tap_mode": args.tap_mode,
+            "scenario": args.scenario,
+            "seed": args.seed,
+            "world_clock": args.world_clock,
+            "motor_body": args.motor_body,
+            "configured_lanes": args.lanes,
+            "observation_interval": args.observation_interval,
+            "motor_token_max_age_ms": args.motor_token_max_age_ms,
+            "artifacts": str(artifacts.directory),
+            "warmup_ms": warmup_ms,
+            "remote_health": health,
+            "probe": _probe_dict(probe),
+            "range": range_summary,
+            "remote": client.snapshot(),
         }
         artifacts.write_summary(result)
         return result
