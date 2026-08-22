@@ -1,6 +1,6 @@
 # VAGO Cloud入力を文字単位で揃える
 
-Status: adapter verified locally; live T4/OpenRouter runs pending.
+Status: OpenRouter 10-seed run complete; physical-T4 runs pending.
 
 ## なぜ必要か
 
@@ -100,8 +100,50 @@ architectureの一部である**ことも測る。
 配線試験だが、入力表現のcostが約146 ms増えた形で観測できた。
 
 生ログは[`vago-cloud-text-openrouter-groq-smoke-seed07-20260823.json`](results/vago-cloud-text-openrouter-groq-smoke-seed07-20260823.json)
-（SHA-256 `11cdd2bfde3fb825296feee75e5cd20a7348325d72d235e735d97d7b4cbe068d`）。
+（Git LF blob SHA-256 `6f427e7ad3d1f7f168d3a0c257ff7ea81f75ebf9c028b7096c1a161410a38ea6`）。
 
 最初の試行はAPI requestを一件も出す前に、ViZDoomが日本語を含むscenario絶対pathを読めず
 `UnicodeDecodeError`で停止した。cfgとWADを内容無変更で`C:\latency-kills-scenario-20260823`へ
 複製して解消した。Windows再現手順ではASCII-only pathを要件にする。
+
+## OpenRouter本走行 — 10 episode
+
+seed 7〜16、最大60秒、3 lane、Groq固定、provider fallbackなしで実行した。公開VAGO Cloud
+prompt/action parserを使い、推論中もworldを35 Hzで進めた。最初のseed 14だけ31.62 Hzとなり
+clock validityを落としたため、同seedを同条件で再走した。再走は34.59 Hzでvalid、killは元runと
+同じ1だった。下表はseed 14を再走値へ置換した10本である。
+
+| 指標 | 10 episode |
+| --- | ---: |
+| kill | **7 / 平均0.7** |
+| seed別 | 0, 1, 0, 0, 1, 1, 2, 1, 0, 1 |
+| valid clock | **10 / 10** |
+| mean native clock | 34.41 Hz |
+| mean survival | 13.37 s |
+| completed decision | 958 |
+| gameへ適用 | 890 |
+| mean model/API completion | 360.6 ms |
+| mean observation-to-result | 386.3 ms |
+| mean action age | 11.75 tic |
+| mean neutral | 157.9 tic / episode |
+| mean busy-drop | 21.5 observation / episode |
+| invalid-output fallback | **0** |
+| reported API cost（raw 10＋再走） | $0.04007244 |
+
+これは、VAGOが報告した最良Cloud baselineの0.8 killとほぼ同じscore帯に着地した。ただし
+model（こちらはLlama 3.1 8B）、seed、world clockが違うため「再現値」や直接勝敗とは呼ばない。
+
+また、構造化V4の平均4.0とのscore差は入力だけのablationではない。VAGO contractへ合わせるため
+action spaceも一文字motorからaction名＋同時押しへ変わっている。ここから安全に言えることは次である。
+
+1. VAGO型の長い入力でも、3-lane Cloud LLM controllerは止まらないworldで技術的に成立した。
+2. 失敗原因は文法崩壊ではない。958回答すべてがactionへ変換できた。
+3. それでも0.7 killなので、overlapだけでは入力理解と古いactionの問題を救えない。
+4. 次の公平な分解には、同じbody/promptで`v/x/a`とASCII＋depthだけを入れ替える入力ablationが要る。
+
+生ログ:
+
+- [raw 10 episode](results/vago-cloud-text-openrouter-groq-10x-20260823.json) — SHA-256
+  `62132e34bcc4817f2b338676281a47784eea231023584cb7abd6e8cd79d06857`
+- [seed 14 valid-clock rerun](results/vago-cloud-text-openrouter-groq-seed14-rerun-20260823.json) — SHA-256
+  `2365e54b71d07e07f15e1c796a0bc2d3383fb6eac19d6dde7649edc4083c0c63`

@@ -1,0 +1,2870 @@
+{
+  "runner": "vago-cloud-text-v4-independent-player-clock",
+  "run_id": "vago-text-c89bdd187646",
+  "backend": "openrouter",
+  "model": "meta-llama/llama-3.1-8b-instruct",
+  "upstream": "C:\\Users\\aiueo\\AppData\\Local\\Temp\\latency-kills-vago-upstream-20260823",
+  "upstream_commit": "b4c3fdfd47cff530f69e8808eae4cc5545671772",
+  "prompt_source": "byte-exact LLMAgent.SYSTEM_PROMPT extracted at runtime",
+  "input_contract": "VAGO Cloud LLMAgent 40x25 brightness ASCII + textual depth 0-9",
+  "scenario_path": "C:\\latency-kills-scenario-20260823\\defend_the_center.cfg",
+  "lanes": 3,
+  "warmup_ms": 812.0000000344589,
+  "warmup": {
+    "tls_warmup_ms": 812.0000000344589
+  },
+  "clock": {
+    "mode": "PLAYER owned by dedicated 35 Hz thread",
+    "tick_hz": 35.0,
+    "observation_tics": 4,
+    "pulse_tics": 4,
+    "maximum_tics": 2100,
+    "inference_advances_world": true,
+    "late_action_behavior": "previous action expires, then neutral",
+    "observation_queue": "drop when every physical/in-flight lane is busy"
+  },
+  "decode": {
+    "contract": "VAGO last-line substring parser with move_forward fallback",
+    "temperature": 0.7,
+    "max_new_tokens": 200,
+    "early_action_execution": false
+  },
+  "episodes": [
+    {
+      "stats": {
+        "seed": 14,
+        "kills": 1,
+        "health": 24.0,
+        "native_tics": 720,
+        "active_wall_seconds": 20.81299999996554,
+        "effective_hz": 34.593763513246145,
+        "clock_valid": true,
+        "episode_finished": true,
+        "inference_count": 138,
+        "inference_mean_ms": 383.8260869556309,
+        "inference_p50_ms": 343.99999992456287,
+        "inference_p95_ms": 502.4000000092202,
+        "decision_latency_mean_ms": 409.3985507252923,
+        "decision_latency_p50_ms": 359.99999998603016,
+        "decision_latency_p95_ms": 531.1500000650994,
+        "action_age_mean_tics": 12.692307692307692,
+        "action_age_p95_tics": 16.0,
+        "observation_replacements": 42,
+        "submitted_actions": 138,
+        "applied_actions": 130,
+        "superseded_actions": 6,
+        "neutral_tics": 280,
+        "action_tics": {
+          "neutral": 280,
+          "shoot": 100,
+          "shoot+move_forward": 107,
+          "turn_left": 44,
+          "shoot+turn_right": 20,
+          "turn_right": 23,
+          "move_forward+turn_right": 41,
+          "move_forward": 49,
+          "move_forward+turn_left": 24,
+          "shoot+turn_left": 32
+        },
+        "selected_actions": {
+          "shoot": 31,
+          "shoot+move_forward": 30,
+          "turn_left": 12,
+          "shoot+turn_right": 5,
+          "turn_right": 9,
+          "move_forward+turn_right": 13,
+          "move_forward": 15,
+          "move_forward+turn_left": 6,
+          "shoot+turn_left": 9
+        },
+        "error": null
+      },
+      "decisions": [
+        {
+          "obs_seq": 1,
+          "obs_game_tick": 0,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 343.99999992456287,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 667,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 2,
+          "obs_game_tick": 4,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 390.99999994505197,
+          "decision_latency_ms": 407.00000000651926,
+          "wire_ms": 390.99999994505197,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 677,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 3,
+          "obs_game_tick": 8,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 687,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 4,
+          "obs_game_tick": 12,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 329.00000002700835,
+          "decision_latency_ms": 344.0000000409782,
+          "wire_ms": 329.00000002700835,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 687,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 6,
+          "obs_game_tick": 20,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 359.00000005494803,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 359.00000005494803,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 824,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 7,
+          "obs_game_tick": 24,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 312.99999996554106,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 312.99999996554106,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 694,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 8,
+          "obs_game_tick": 28,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 359.00000005494803,
+          "decision_latency_ms": 391.0000000614673,
+          "wire_ms": 359.00000005494803,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 687,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 10,
+          "obs_game_tick": 36,
+          "action": "shoot+turn_right",
+          "buttons": [
+            1,
+            0,
+            0,
+            1
+          ],
+          "completion": "shoot+turn_right",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 822,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 11,
+          "obs_game_tick": 40,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 390.00000001396984,
+          "wire_ms": 375.0,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 693,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 12,
+          "obs_game_tick": 44,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 312.00000003445894,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 312.00000003445894,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 698,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 14,
+          "obs_game_tick": 52,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 359.99999998603016,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 359.99999998603016,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 689,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 15,
+          "obs_game_tick": 56,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 825,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 16,
+          "obs_game_tick": 60,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 819,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 18,
+          "obs_game_tick": 68,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 358.9999999385327,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 699,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 19,
+          "obs_game_tick": 72,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 690,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 20,
+          "obs_game_tick": 76,
+          "action": "shoot+turn_right",
+          "buttons": [
+            1,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right+shoot",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 358.9999999385327,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 692,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 21,
+          "obs_game_tick": 80,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 421.9999999040738,
+          "decision_latency_ms": 437.99999996554106,
+          "wire_ms": 421.9999999040738,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 687,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 23,
+          "obs_game_tick": 88,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 358.9999999385327,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 837,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 24,
+          "obs_game_tick": 92,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 406.00000007543713,
+          "decision_latency_ms": 438.0000000819564,
+          "wire_ms": 406.00000007543713,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 693,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 25,
+          "obs_game_tick": 96,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 697,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 27,
+          "obs_game_tick": 104,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "turn_left+move_forward",
+          "inference_ms": 391.0000000614673,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 391.0000000614673,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 688,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 28,
+          "obs_game_tick": 108,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 312.00000003445894,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 312.00000003445894,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 689,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 29,
+          "obs_game_tick": 112,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 686,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 31,
+          "obs_game_tick": 120,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "turn_left+move_forward",
+          "inference_ms": 312.99999996554106,
+          "decision_latency_ms": 343.99999992456287,
+          "wire_ms": 312.99999996554106,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 693,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 32,
+          "obs_game_tick": 124,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 696,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 33,
+          "obs_game_tick": 128,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 311.9999999180436,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 311.9999999180436,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 684,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 34,
+          "obs_game_tick": 132,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 815,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 36,
+          "obs_game_tick": 140,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 500.0,
+          "decision_latency_ms": 532.0000000065193,
+          "wire_ms": 500.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 688,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 35,
+          "obs_game_tick": 136,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 640.0000000139698,
+          "decision_latency_ms": 672.0000000204891,
+          "wire_ms": 640.0000000139698,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 816,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 38,
+          "obs_game_tick": 148,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 676,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 41,
+          "obs_game_tick": 160,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 675,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 42,
+          "obs_game_tick": 164,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 328.0000000959262,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 328.0000000959262,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 724,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 43,
+          "obs_game_tick": 168,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 343.99999992456287,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 745,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 44,
+          "obs_game_tick": 172,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 313.0000000819564,
+          "decision_latency_ms": 328.0000000959262,
+          "wire_ms": 313.0000000819564,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 681,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 45,
+          "obs_game_tick": 176,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "turn_left+move_forward",
+          "inference_ms": 328.0000000959262,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 328.0000000959262,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 676,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 46,
+          "obs_game_tick": 180,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 762,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 47,
+          "obs_game_tick": 184,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 739,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 48,
+          "obs_game_tick": 188,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 677,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 50,
+          "obs_game_tick": 196,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "turn_right+move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 747,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 51,
+          "obs_game_tick": 200,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 390.99999994505197,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 390.99999994505197,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 682,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 52,
+          "obs_game_tick": 204,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left+shoot",
+          "inference_ms": 359.99999998603016,
+          "decision_latency_ms": 390.99999994505197,
+          "wire_ms": 359.99999998603016,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 677,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 53,
+          "obs_game_tick": 208,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 312.00000003445894,
+          "decision_latency_ms": 344.0000000409782,
+          "wire_ms": 312.00000003445894,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 703,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 55,
+          "obs_game_tick": 216,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 312.99999996554106,
+          "decision_latency_ms": 344.0000000409782,
+          "wire_ms": 312.99999996554106,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 685,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 56,
+          "obs_game_tick": 220,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 329.00000002700835,
+          "decision_latency_ms": 344.0000000409782,
+          "wire_ms": 329.00000002700835,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 685,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 57,
+          "obs_game_tick": 224,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left+shoot",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 698,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 58,
+          "obs_game_tick": 228,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 312.00000003445894,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 312.00000003445894,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 705,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 60,
+          "obs_game_tick": 236,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 710,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 61,
+          "obs_game_tick": 240,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 721,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 62,
+          "obs_game_tick": 244,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 406.00000007543713,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 738,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 64,
+          "obs_game_tick": 252,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 742,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 65,
+          "obs_game_tick": 256,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 359.00000005494803,
+          "decision_latency_ms": 391.0000000614673,
+          "wire_ms": 359.00000005494803,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 716,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 66,
+          "obs_game_tick": 260,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 406.00000007543713,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 758,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 67,
+          "obs_game_tick": 264,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "shoot+turn_left",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 765,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 69,
+          "obs_game_tick": 272,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 729,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 70,
+          "obs_game_tick": 276,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "move_forward+turn_left",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 730,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 71,
+          "obs_game_tick": 280,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 741,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 73,
+          "obs_game_tick": 288,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 342.99999999348074,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 752,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 74,
+          "obs_game_tick": 292,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 734,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 75,
+          "obs_game_tick": 296,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 358.9999999385327,
+          "decision_latency_ms": 390.00000001396984,
+          "wire_ms": 358.9999999385327,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 735,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 77,
+          "obs_game_tick": 304,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 748,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 78,
+          "obs_game_tick": 308,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 406.00000007543713,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 752,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 79,
+          "obs_game_tick": 312,
+          "action": "shoot+turn_right",
+          "buttons": [
+            1,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right+shoot",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 741,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 81,
+          "obs_game_tick": 320,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 406.00000007543713,
+          "decision_latency_ms": 437.00000003445894,
+          "wire_ms": 406.00000007543713,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 785,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 82,
+          "obs_game_tick": 324,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 702.9999999795109,
+          "decision_latency_ms": 717.9999999934807,
+          "wire_ms": 702.9999999795109,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 754,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 83,
+          "obs_game_tick": 328,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 625.0,
+          "decision_latency_ms": 657.0000000065193,
+          "wire_ms": 625.0,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 773,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 85,
+          "obs_game_tick": 336,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 719.0000000409782,
+          "decision_latency_ms": 782.0000000065193,
+          "wire_ms": 719.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 773,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 88,
+          "obs_game_tick": 348,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "shoot+turn_left",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 798,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 89,
+          "obs_game_tick": 352,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 358.9999999385327,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 807,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 92,
+          "obs_game_tick": 364,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left+shoot",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 823,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 93,
+          "obs_game_tick": 368,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 437.99999996554106,
+          "decision_latency_ms": 468.99999992456287,
+          "wire_ms": 437.99999996554106,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 822,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 94,
+          "obs_game_tick": 372,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left+shoot",
+          "inference_ms": 359.00000005494803,
+          "decision_latency_ms": 391.0000000614673,
+          "wire_ms": 359.00000005494803,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 820,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 96,
+          "obs_game_tick": 380,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 437.99999996554106,
+          "decision_latency_ms": 469.0000000409782,
+          "wire_ms": 437.99999996554106,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 805,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 97,
+          "obs_game_tick": 384,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 327.9999999795109,
+          "decision_latency_ms": 359.00000005494803,
+          "wire_ms": 327.9999999795109,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 825,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 98,
+          "obs_game_tick": 388,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "move_forward+turn_left",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 375.0,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 808,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 101,
+          "obs_game_tick": 400,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 312.00000003445894,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 312.00000003445894,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 801,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 102,
+          "obs_game_tick": 404,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 405.9999999590218,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 405.9999999590218,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 824,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 103,
+          "obs_game_tick": 408,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "turn_right+move_forward",
+          "inference_ms": 359.99999998603016,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 359.99999998603016,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 824,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 104,
+          "obs_game_tick": 412,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 312.00000003445894,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 828,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 106,
+          "obs_game_tick": 420,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 391.0000000614673,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 805,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 107,
+          "obs_game_tick": 424,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 343.99999992456287,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 343.99999992456287,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 782,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 108,
+          "obs_game_tick": 428,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 797,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 110,
+          "obs_game_tick": 436,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 807,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 111,
+          "obs_game_tick": 440,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 344.0000000409782,
+          "decision_latency_ms": 359.99999998603016,
+          "wire_ms": 344.0000000409782,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 788,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 112,
+          "obs_game_tick": 444,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 265.99999994505197,
+          "decision_latency_ms": 296.9999999040738,
+          "wire_ms": 265.99999994505197,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 844,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 114,
+          "obs_game_tick": 452,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "turn_right+move_forward",
+          "inference_ms": 280.9999999590218,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 280.9999999590218,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 788,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 115,
+          "obs_game_tick": 456,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 282.00000000651926,
+          "decision_latency_ms": 312.99999996554106,
+          "wire_ms": 282.00000000651926,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 808,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 116,
+          "obs_game_tick": 460,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 375.0,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 832,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 117,
+          "obs_game_tick": 464,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 329.00000002700835,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 817,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 118,
+          "obs_game_tick": 468,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 265.99999994505197,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 265.99999994505197,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 818,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 120,
+          "obs_game_tick": 476,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 266.0000000614673,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 266.0000000614673,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 808,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 121,
+          "obs_game_tick": 480,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 837,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 122,
+          "obs_game_tick": 484,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 265.99999994505197,
+          "decision_latency_ms": 296.9999999040738,
+          "wire_ms": 265.99999994505197,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 822,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 123,
+          "obs_game_tick": 488,
+          "action": "shoot+turn_right",
+          "buttons": [
+            1,
+            0,
+            0,
+            1
+          ],
+          "completion": "shoot+turn_right",
+          "inference_ms": 312.99999996554106,
+          "decision_latency_ms": 343.99999992456287,
+          "wire_ms": 312.99999996554106,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 820,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 124,
+          "obs_game_tick": 492,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 405.9999999590218,
+          "decision_latency_ms": 437.99999996554106,
+          "wire_ms": 405.9999999590218,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 816,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 125,
+          "obs_game_tick": 496,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "turn_right+move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 407.00000000651926,
+          "wire_ms": 375.0,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 826,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 126,
+          "obs_game_tick": 500,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 265.99999994505197,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 265.99999994505197,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 838,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 128,
+          "obs_game_tick": 508,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 280.9999999590218,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 280.9999999590218,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 823,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 129,
+          "obs_game_tick": 512,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "shoot+turn_left",
+          "inference_ms": 281.00000007543713,
+          "decision_latency_ms": 313.0000000819564,
+          "wire_ms": 281.00000007543713,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 842,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 130,
+          "obs_game_tick": 516,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 281.00000007543713,
+          "decision_latency_ms": 313.0000000819564,
+          "wire_ms": 281.00000007543713,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 830,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 131,
+          "obs_game_tick": 520,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 358.9999999385327,
+          "decision_latency_ms": 390.00000001396984,
+          "wire_ms": 358.9999999385327,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 817,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 132,
+          "obs_game_tick": 524,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 407.00000000651926,
+          "decision_latency_ms": 437.99999996554106,
+          "wire_ms": 407.00000000651926,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 800,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 133,
+          "obs_game_tick": 528,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 282.00000000651926,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 282.00000000651926,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 831,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 135,
+          "obs_game_tick": 536,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "shoot+turn_left",
+          "inference_ms": 437.00000003445894,
+          "decision_latency_ms": 452.9999999795109,
+          "wire_ms": 437.00000003445894,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 825,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 136,
+          "obs_game_tick": 540,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 839,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 137,
+          "obs_game_tick": 544,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 311.9999999180436,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 311.9999999180436,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 808,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 140,
+          "obs_game_tick": 556,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 406.00000007543713,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 406.00000007543713,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 788,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 141,
+          "obs_game_tick": 560,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 390.99999994505197,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 390.99999994505197,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 798,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 142,
+          "obs_game_tick": 564,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 280.9999999590218,
+          "decision_latency_ms": 312.00000003445894,
+          "wire_ms": 280.9999999590218,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 792,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 144,
+          "obs_game_tick": 572,
+          "action": "turn_left",
+          "buttons": [
+            0,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left",
+          "inference_ms": 282.00000000651926,
+          "decision_latency_ms": 312.99999996554106,
+          "wire_ms": 282.00000000651926,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 803,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 145,
+          "obs_game_tick": 576,
+          "action": "shoot+turn_right",
+          "buttons": [
+            1,
+            0,
+            0,
+            1
+          ],
+          "completion": "shoot+turn_right",
+          "inference_ms": 281.00000007543713,
+          "decision_latency_ms": 312.00000003445894,
+          "wire_ms": 281.00000007543713,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 785,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 146,
+          "obs_game_tick": 580,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 801,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 147,
+          "obs_game_tick": 584,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 265.00000001396984,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 265.00000001396984,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 804,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 148,
+          "obs_game_tick": 588,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 342.99999999348074,
+          "decision_latency_ms": 375.0,
+          "wire_ms": 342.99999999348074,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 805,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 149,
+          "obs_game_tick": 592,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 296.9999999040738,
+          "decision_latency_ms": 327.9999999795109,
+          "wire_ms": 296.9999999040738,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 815,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 150,
+          "obs_game_tick": 596,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 375.0,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 801,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 151,
+          "obs_game_tick": 600,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 420.99999997299165,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 802,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 153,
+          "obs_game_tick": 608,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 265.00000001396984,
+          "decision_latency_ms": 280.9999999590218,
+          "wire_ms": 265.00000001396984,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 804,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 152,
+          "obs_game_tick": 604,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "turn_right+move_forward",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 420.99999997299165,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 803,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 155,
+          "obs_game_tick": 616,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 390.00000001396984,
+          "wire_ms": 375.0,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 796,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 156,
+          "obs_game_tick": 620,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 282.00000000651926,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 282.00000000651926,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 789,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 157,
+          "obs_game_tick": 624,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 803,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 159,
+          "obs_game_tick": 632,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 390.00000001396984,
+          "wire_ms": 375.0,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 795,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 160,
+          "obs_game_tick": 636,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "move_forward+turn_left",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 800,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 161,
+          "obs_game_tick": 640,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 295.99999997299165,
+          "decision_latency_ms": 311.9999999180436,
+          "wire_ms": 295.99999997299165,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 805,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 163,
+          "obs_game_tick": 648,
+          "action": "shoot+turn_left",
+          "buttons": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "completion": "turn_left+shoot",
+          "inference_ms": 390.99999994505197,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 390.99999994505197,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 798,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 164,
+          "obs_game_tick": 652,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 406.00000007543713,
+          "decision_latency_ms": 422.0000000204891,
+          "wire_ms": 406.00000007543713,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 795,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 165,
+          "obs_game_tick": 656,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 375.0,
+          "decision_latency_ms": 407.00000000651926,
+          "wire_ms": 375.0,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 795,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 168,
+          "obs_game_tick": 668,
+          "action": "move_forward",
+          "buttons": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "completion": "move_forward",
+          "inference_ms": 266.0000000614673,
+          "decision_latency_ms": 297.0000000204891,
+          "wire_ms": 266.0000000614673,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 807,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 167,
+          "obs_game_tick": 664,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "move_forward+turn_left",
+          "inference_ms": 390.99999994505197,
+          "decision_latency_ms": 407.00000000651926,
+          "wire_ms": 390.99999994505197,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 812,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 169,
+          "obs_game_tick": 672,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 469.0000000409782,
+          "decision_latency_ms": 500.0,
+          "wire_ms": 469.0000000409782,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 803,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 171,
+          "obs_game_tick": 680,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 280.9999999590218,
+          "decision_latency_ms": 296.9999999040738,
+          "wire_ms": 280.9999999590218,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 809,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 172,
+          "obs_game_tick": 684,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 280.9999999590218,
+          "decision_latency_ms": 296.9999999040738,
+          "wire_ms": 280.9999999590218,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 788,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 175,
+          "obs_game_tick": 696,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 312.00000003445894,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 817,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 174,
+          "obs_game_tick": 692,
+          "action": "shoot",
+          "buttons": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "completion": "shoot",
+          "inference_ms": 516.0000000614673,
+          "decision_latency_ms": 531.0000000754371,
+          "wire_ms": 516.0000000614673,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 788,
+          "completion_tokens": 2,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 176,
+          "obs_game_tick": 700,
+          "action": "move_forward+turn_left",
+          "buttons": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "completion": "move_forward+turn_left",
+          "inference_ms": 390.00000001396984,
+          "decision_latency_ms": 405.9999999590218,
+          "wire_ms": 390.00000001396984,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 838,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 178,
+          "obs_game_tick": 708,
+          "action": "turn_right",
+          "buttons": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "completion": "turn_right",
+          "inference_ms": 297.0000000204891,
+          "decision_latency_ms": 313.0000000819564,
+          "wire_ms": 297.0000000204891,
+          "lane": "openrouter-1",
+          "provider": "Groq",
+          "prompt_tokens": 826,
+          "completion_tokens": 3,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 179,
+          "obs_game_tick": 712,
+          "action": "move_forward+turn_right",
+          "buttons": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "completion": "move_forward+turn_right",
+          "inference_ms": 2547.000000020489,
+          "decision_latency_ms": 2562.999999965541,
+          "wire_ms": 2547.000000020489,
+          "lane": "openrouter-2",
+          "provider": "Groq",
+          "prompt_tokens": 837,
+          "completion_tokens": 6,
+          "input_characters": 2095
+        },
+        {
+          "obs_seq": 180,
+          "obs_game_tick": 716,
+          "action": "shoot+move_forward",
+          "buttons": [
+            1,
+            1,
+            0,
+            0
+          ],
+          "completion": "shoot+move_forward",
+          "inference_ms": 2407.0000000065193,
+          "decision_latency_ms": 2437.999999965541,
+          "wire_ms": 2407.0000000065193,
+          "lane": "openrouter-0",
+          "provider": "Groq",
+          "prompt_tokens": 816,
+          "completion_tokens": 5,
+          "input_characters": 2095
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "episodes": 1,
+    "total_kills": 1,
+    "mean_kills": 1.0,
+    "mean_survival_seconds": 20.571428571428573,
+    "mean_effective_hz": 34.593763513246145,
+    "valid_clock_episodes": 1,
+    "mean_inference_ms": 383.8260869556309,
+    "mean_decision_latency_ms": 409.3985507252923,
+    "mean_action_age_tics": 12.692307692307692,
+    "total_neutral_tics": 280,
+    "total_observation_replacements": 42
+  },
+  "policy": {
+    "budget": {
+      "requests": 138,
+      "maximum_requests": 500,
+      "estimated_reserved_usd": 0.11816111999999968,
+      "reported_cost_usd": 0.005336759999999997,
+      "prompt_tokens": 106124,
+      "completion_tokens": 542,
+      "maximum_usd": 0.5
+    }
+  }
+}
