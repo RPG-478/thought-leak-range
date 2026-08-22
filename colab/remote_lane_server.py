@@ -52,6 +52,14 @@ class MotorRequest(BaseModel):
     observation: str = Field(min_length=9, max_length=80)
 
 
+class VagoTextRequest(BaseModel):
+    request_id: str = Field(min_length=1, max_length=160)
+    system_prompt: str = Field(min_length=20, max_length=8_000)
+    user_content: str = Field(min_length=100, max_length=12_000)
+    max_new_tokens: int = Field(default=200, ge=1, le=200)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+
+
 def _authorize(authorization: str | None = Header(default=None)) -> None:
     expected = f"Bearer {BEARER_TOKEN}"
     if authorization is None or not secrets.compare_digest(authorization, expected):
@@ -172,6 +180,84 @@ def _infer(observation: str) -> tuple[str, float, int]:
     return decoded, compute_ms, suffix_len
 
 
+_VAGO_ACTIONS = ("shoot", "move_forward", "turn_left", "turn_right")
+_VAGO_BUTTONS = {
+    "shoot": (1, 0, 0, 0),
+    "move_forward": (0, 1, 0, 0),
+    "turn_left": (0, 0, 1, 0),
+    "turn_right": (0, 0, 0, 1),
+}
+
+
+def _parse_vago_action(text: str) -> tuple[str, tuple[int, int, int, int]]:
+    action_text = text.strip().lower()
+    lines = [line.strip() for line in action_text.split("\n") if line.strip()]
+    if lines:
+        action_text = lines[-1]
+    buttons = [0, 0, 0, 0]
+    parsed: list[str] = []
+    for action in _VAGO_ACTIONS:
+        if action not in action_text:
+            continue
+        buttons = [
+            max(left, right)
+            for left, right in zip(buttons, _VAGO_BUTTONS[action], strict=True)
+        ]
+        parsed.append(action)
+    if parsed:
+        return "+".join(parsed), tuple(buttons)
+    return "move_forward", _VAGO_BUTTONS["move_forward"]
+
+
+def _infer_vago_text(
+    request: VagoTextRequest,
+) -> tuple[str, tuple[int, int, int, int], str, float, int, int]:
+    started = time.perf_counter()
+    batch = tokenizer.apply_chat_template(
+        [
+            {"role": "system", "content": request.system_prompt},
+            {"role": "user", "content": request.user_content},
+        ],
+        tokenize=True,
+        add_generation_prompt=True,
+        return_tensors="pt",
+        return_dict=True,
+    )
+    input_ids = batch["input_ids"].to(model.device)
+    attention_mask = batch.get("attention_mask", torch.ones_like(input_ids)).to(
+        model.device
+    )
+    prompt_tokens = int(input_ids.shape[-1])
+    generation = {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "max_new_tokens": request.max_new_tokens,
+        "use_cache": True,
+        "pad_token_id": tokenizer.eos_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+    }
+    if request.temperature > 0:
+        generation.update(do_sample=True, temperature=request.temperature)
+    else:
+        generation.update(do_sample=False)
+    with torch.inference_mode():
+        torch.cuda.synchronize()
+        output = model.generate(**generation)
+        torch.cuda.synchronize()
+    completion_ids = output[0, prompt_tokens:]
+    completion = tokenizer.decode(completion_ids, skip_special_tokens=True)
+    compute_ms = (time.perf_counter() - started) * 1000.0
+    action, buttons = _parse_vago_action(completion)
+    return (
+        action,
+        buttons,
+        completion[:1_000],
+        compute_ms,
+        prompt_tokens,
+        int(completion_ids.shape[-1]),
+    )
+
+
 app = FastAPI(title="Latency Kills Remote T4 Lane", docs_url=None, redoc_url=None)
 
 
@@ -186,6 +272,7 @@ def health() -> dict[str, Any]:
         "constrained_digits": CONSTRAIN_DIGITS,
         "prefix_tokens": _prefix_len,
         "load_seconds": round(LOAD_SECONDS, 3),
+        "input_modes": ["v4-structured", "vago-cloud-text"],
     }
 
 
@@ -205,4 +292,28 @@ def motor(request: MotorRequest) -> dict[str, Any]:
         "compute_ms": compute_ms,
         "suffix_tokens": suffix_tokens,
         "constrained_digits": CONSTRAIN_DIGITS,
+    }
+
+
+@app.post("/vago-text", dependencies=[Depends(_authorize)])
+def vago_text(request: VagoTextRequest) -> dict[str, Any]:
+    queued_at = time.perf_counter()
+    with _inference_lock:
+        acquired_at = time.perf_counter()
+        action, buttons, completion, compute_ms, prompt_tokens, completion_tokens = (
+            _infer_vago_text(request)
+        )
+    return {
+        "request_id": request.request_id,
+        "action": action,
+        "buttons": buttons,
+        "completion": completion,
+        "model": MODEL_ID,
+        "lane": LANE_NAME,
+        "queue_ms": (acquired_at - queued_at) * 1000.0,
+        "compute_ms": compute_ms,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "temperature": request.temperature,
+        "max_new_tokens": request.max_new_tokens,
     }

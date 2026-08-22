@@ -157,6 +157,50 @@ def test_remote_lane_pool_uses_each_physical_endpoint() -> None:
     asyncio.run(exercise())
 
 
+def test_remote_lane_pool_runs_vago_text_contract() -> None:
+    async def exercise() -> None:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert request.url.path == "/vago-text"
+            assert body["system_prompt"] == "s" * 20
+            assert body["user_content"] == "u" * 100
+            return httpx.Response(
+                200,
+                json={
+                    "request_id": body["request_id"],
+                    "action": "shoot+turn_left",
+                    "buttons": [1, 0, 1, 0],
+                    "completion": "shoot+turn_left",
+                    "model": "meta-llama/Llama-3.1-8B-Instruct",
+                    "compute_ms": 401.0,
+                    "queue_ms": 0.0,
+                    "prompt_tokens": 2240,
+                    "completion_tokens": 4,
+                },
+            )
+
+        client = RemoteLanePoolClient(
+            (RemoteLaneConfig("t4-a", "https://lane-a.example", "a" * 32),),
+            transport=httpx.MockTransport(handler),
+        )
+        try:
+            decision = await client.decide_vago_text(
+                system_prompt="s" * 20,
+                user_content="u" * 100,
+                run_id="run",
+                observation_seq=7,
+            )
+        finally:
+            await client.aclose()
+
+        assert decision.action == "shoot+turn_left"
+        assert decision.buttons == (1, 0, 1, 0)
+        assert decision.prompt_tokens == 2240
+        assert decision.server_compute_ms == 401.0
+
+    asyncio.run(exercise())
+
+
 def test_remote_live_parser_defaults_to_three_direct_motor_lanes() -> None:
     args = build_parser().parse_args(["remote-live"])
     assert args.tap_mode == "direct-motor"

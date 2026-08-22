@@ -331,10 +331,10 @@ CIはUbuntu / Windows、Python 3.12で実行します。
 
 Latency Kills自身は[MIT License](LICENSE)です。
 
-VAGOの[Hugging Face model card](https://huggingface.co/VAGOsolutions/SauerkrautLM-Doom-MultiVec-1.3M)は
-Apache-2.0を表示しています。一方、2026-08-21確認時点で
-[GitHub source repository](https://github.com/VAGOsolutions/SauerkrautLM-Doom-MultiVec)自体には`LICENSE` fileがなく、
-GitHub API上のlicenseも未判定です。本repositoryはupstreamのweights、source、action policyを再配布せず、
+VAGOの[Hugging Face model card](https://huggingface.co/VAGOsolutions/SauerkrautLM-Doom-MultiVec-1.3M)と
+GitHub READMEはApache-2.0を表示しています。一方、2026-08-23のupstream commit `b4c3fdf`にも
+`LICENSE` fileと`pyproject.toml`のlicense fieldはなく、GitHub API上のlicenseも未判定です。
+本repositoryはupstreamのweights、source、action policy、promptを再配布せず、
 ユーザーが別途用意したcheckoutを動的に読み込むadapterだけを提供します。sourceを利用する場合は
 upstreamの最新表記を確認してください。
 

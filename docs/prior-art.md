@@ -11,8 +11,10 @@ and its public implementation,
 benchmark cloud LLMs directly in ViZDoom's `defend_the_center` scenario. The paper's main contribution is a
 1.3M-parameter specialized model, but its baselines are highly relevant here.
 
-All agents receive a 40x25 ASCII view plus a quantized depth map and choose among `shoot`,
-`move_forward`, `turn_left`, and `turn_right`.
+All agents receive a 40x25 ASCII view plus depth and choose among `shoot`, `move_forward`,
+`turn_left`, and `turn_right`. The representation is not literally identical: the 1.3M specialist
+receives aligned 16-bin depth embeddings, while the Cloud `LLMAgent` sends a separate 40x25 grid of
+the characters `0` through `9`.
 
 | Cloud model | Reported result | Mean latency |
 |---|---:|---:|
@@ -87,9 +89,10 @@ preemption fell from 38 to zero. This is one seed and still uses V4's structured
 space, so it isolates the clock scaffold rather than comparing against VAGO's model. See the
 [V4-S experiment](experiment-v4-vago-sync.md).
 
-The remaining fully aligned comparison is the same cloud model, ASCII+depth input, action set, seeds,
-and episode limits under two adapters: VAGO's blocking synchronous loop and V4's overlapping,
-TTL-guarded, one-token loop.
+The adapter for the remaining aligned comparison is now implemented. It reproduces the public Cloud
+payload byte-for-byte, loads the exact upstream system prompt at runtime, and can send it through one
+or three physical T4s or OpenRouter while a dedicated thread keeps the world at 35 Hz. Live results are
+still pending. See [VAGO Cloud text alignment](experiment-vago-cloud-text-alignment.md).
 
 ## Other close systems
 

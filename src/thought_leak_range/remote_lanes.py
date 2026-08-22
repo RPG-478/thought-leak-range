@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from .openrouter import StreamResult
+from .vago_text import parse_vago_cloud_action
 
 
 DEFAULT_LANE_ENV = "LATENCY_KILLS_REMOTE_LANES"
@@ -29,6 +30,22 @@ class RemoteLaneConfig:
     name: str
     endpoint: str
     bearer_token: str
+
+
+@dataclass(frozen=True, slots=True)
+class VagoTextDecision:
+    request_id: str
+    action: str
+    buttons: tuple[int, int, int, int]
+    completion: str
+    lane: str
+    model: str | None
+    arrived_at: float
+    wire_ms: float
+    server_compute_ms: float | None
+    server_queue_ms: float | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
 
 
 @dataclass(slots=True)
@@ -261,6 +278,121 @@ class RemoteLanePoolClient:
                 first_visible_ms=wire_ms,
                 total_ms=(time.monotonic() - started) * 1000.0,
                 usage=usage,
+            )
+        except (httpx.HTTPError, OSError) as error:
+            stats.failures += 1
+            raise RemoteLaneFailure(
+                f"remote lane {config.name} request failed: {type(error).__name__}"
+            ) from error
+        finally:
+            self._available.put_nowait(lane_index)
+
+    async def decide_vago_text(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        run_id: str,
+        observation_seq: int,
+        max_new_tokens: int = 200,
+        temperature: float = 0.7,
+    ) -> VagoTextDecision:
+        """Run VAGO's published Cloud-LLM text contract on one free GPU."""
+
+        if not 1 <= max_new_tokens <= 200:
+            raise ValueError("VAGO max_new_tokens must be between 1 and 200")
+        if not 0.0 <= temperature <= 2.0:
+            raise ValueError("VAGO temperature must be between 0 and 2")
+        if not system_prompt.strip() or not user_content.strip():
+            raise ValueError("VAGO prompt content cannot be empty")
+
+        lane_index = await self._available.get()
+        config = self.configs[lane_index]
+        client = self._clients[lane_index]
+        stats = self._stats[lane_index]
+        self._request_sequence += 1
+        request_id = f"{run_id}-{observation_seq}-{self._request_sequence}"
+        started = time.monotonic()
+        try:
+            response = await client.post(
+                "/vago-text",
+                json={
+                    "request_id": request_id,
+                    "system_prompt": system_prompt,
+                    "user_content": user_content,
+                    "max_new_tokens": max_new_tokens,
+                    "temperature": temperature,
+                },
+            )
+            arrived_at = time.monotonic()
+            if response.status_code >= 400:
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned HTTP {response.status_code}"
+                )
+            try:
+                payload = response.json()
+            except ValueError as error:
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned invalid JSON"
+                ) from error
+            if not isinstance(payload, dict):
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned a non-object response"
+                )
+
+            action = _optional_text(payload.get("action"))
+            raw_buttons = payload.get("buttons")
+            if action is None or not isinstance(raw_buttons, list | tuple):
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned an invalid VAGO action"
+                )
+            canonical_action, canonical_buttons = parse_vago_cloud_action(action)
+            try:
+                buttons = tuple(int(value) for value in raw_buttons)
+            except (TypeError, ValueError) as error:
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned invalid VAGO buttons"
+                ) from error
+            if (
+                action != canonical_action
+                or len(buttons) != 4
+                or buttons != canonical_buttons
+            ):
+                stats.failures += 1
+                raise RemoteLaneFailure(
+                    f"remote lane {config.name} returned inconsistent VAGO controls"
+                )
+
+            wire_ms = (arrived_at - started) * 1000.0
+            compute_ms = _finite_nonnegative(payload.get("compute_ms"))
+            queue_ms = _finite_nonnegative(payload.get("queue_ms"))
+            stats.requests += 1
+            stats.wire_ms.append(wire_ms)
+            if compute_ms is not None:
+                stats.server_compute_ms.append(compute_ms)
+            if queue_ms is not None:
+                stats.server_queue_ms.append(queue_ms)
+            completion = payload.get("completion")
+            if not isinstance(completion, str):
+                completion = ""
+            return VagoTextDecision(
+                request_id=_optional_text(payload.get("request_id")) or request_id,
+                action=action,
+                buttons=canonical_buttons,
+                completion=completion[:1_000],
+                lane=config.name,
+                model=_optional_text(payload.get("model")),
+                arrived_at=arrived_at,
+                wire_ms=wire_ms,
+                server_compute_ms=compute_ms,
+                server_queue_ms=queue_ms,
+                prompt_tokens=_nonnegative_int(payload.get("prompt_tokens")),
+                completion_tokens=_nonnegative_int(payload.get("completion_tokens")),
             )
         except (httpx.HTTPError, OSError) as error:
             stats.failures += 1
